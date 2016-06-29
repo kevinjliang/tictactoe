@@ -49,4 +49,4 @@ def testGameXwins():
     sleep(1)
     plt.imshow(game.getImage())
     
-    print('Done')
+    print('Game Over')
