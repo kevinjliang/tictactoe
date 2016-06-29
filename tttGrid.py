@@ -9,7 +9,6 @@
 ##   7  |  8  |  9
 
 import numpy as np
-import matplotlib.pyplot as plt
 
 class tttGrid:
     # Player IDs
@@ -37,7 +36,7 @@ class tttGrid:
         # Load the images of all X/O shapes in all 9 locations
         for i in range(1,10):
             self.Xs[:,:,i-1] = eval('np.loadtxt(\'shapes\X{0}.txt\'.format(i))')
-            self.Os[:,:,i-1] = eval('np.loadtxt(\'shapes\X{0}.txt\'.format(i))')
+            self.Os[:,:,i-1] = eval('np.loadtxt(\'shapes\O{0}.txt\'.format(i))')
      
     def move(self,player,position):
         '''
@@ -48,15 +47,18 @@ class tttGrid:
         
         self.grid[row, col] = player
         
-        self.updateImage(self,player,position)
+        self.updateImage(player,position)
         
         return self.checkWin()
     
     def updateImage(self,player,position):
         if player==1:
-            self.image = self.image + self.Xs(:,:,position-1)
+            self.image = self.image + self.Xs[:,:,position-1]
         elif player==2:
-            self.image = self.image + self.Os(:,:,position-1)
+            self.image = self.image + self.Os[:,:,position-1]
+    
+    def getImage(self):
+        return self.image
         
     def checkWin(self):
         '''
