@@ -6,7 +6,7 @@ Created on Wed Jun 29 10:19:07 2016
 """
 
 ## Tic-Tac-Toe Deep RL tests
-import tttGrid as ttt
+import tictactoe as ttt
 import matplotlib.pyplot as plt
 from time import sleep
 

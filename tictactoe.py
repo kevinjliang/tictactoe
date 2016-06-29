@@ -1,4 +1,9 @@
-## Tic-Tac-Toe grid Class
+## Tic-Tac-Toe module
+## Kevin Liang
+
+
+###############################################################################
+## tttGrid - the tic-tac-toe grid and display mechanisms
 ##
 ## Grid position labelled as the following:
 ## 
@@ -37,14 +42,31 @@ class tttGrid:
         for i in range(1,10):
             self.Xs[:,:,i-1] = eval('np.loadtxt(\'shapes\X{0}.txt\'.format(i))')
             self.Os[:,:,i-1] = eval('np.loadtxt(\'shapes\O{0}.txt\'.format(i))')
-     
+        
+    def getImage(self):
+        return self.image
+        
+    def getGrid(self):
+        return self.grid
+        
     def move(self,player,position):
         '''
         Player "player" makes a move to the position "position"
+        
+        return 0 -> no winner yet
+        return 1 -> X has won
+        return 2 -> O has won
+        
+        return -1 -> error
         '''
         row = (position-1)//self.GRIDSIZE
         col = (position%self.GRIDSIZE)-1
         
+        if self.grid[row, col]!= 0:
+            # Invalid move, symbol already there
+            return -1
+        
+        # Mark the spot with player's symbol
         self.grid[row, col] = player
         
         self.updateImage(player,position)
@@ -52,13 +74,13 @@ class tttGrid:
         return self.checkWin()
     
     def updateImage(self,player,position):
+        '''
+        Adds an X/O symbol at the proper location of the image of the grid
+        '''
         if player==1:
             self.image = self.image + self.Xs[:,:,position-1]
         elif player==2:
             self.image = self.image + self.Os[:,:,position-1]
-    
-    def getImage(self):
-        return self.image
         
     def checkWin(self):
         '''
@@ -109,3 +131,34 @@ class tttGrid:
         self.image[82:86,:] = 1
         self.image[:,39:43] = 1
         self.image[:,82:86] = 1
+        
+###############################################################################
+## tttGame - tic-tac-toe game between DeepRL and optimumAI
+##
+        
+#class tttGame:        
+    
+        
+        
+###############################################################################
+## tttGame - tic-tac-toe AI: Newell and Simon
+##
+## Optimal strategey pre-coded. DeepRL will train against it.
+## Takes in the actual grid of tttGrid as input  
+        
+class optimumAI:        
+    def __init__(self,identity):
+        # X: 1, O: 2
+        self.identity = identity
+        
+        # Control how often the optimum AI deviates from optimum
+        self.difficulty = 0.9
+    
+        
+        
+        
+        
+        
+        
+        
+        
