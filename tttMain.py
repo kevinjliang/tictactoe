@@ -3,4 +3,8 @@
 import tttTest
 
 
-tttTest.testGameXwins()
+#tttTest.testGameXwins()
+#
+#tttTest.testGameOwins()
+
+tttTest.testOptAI()
