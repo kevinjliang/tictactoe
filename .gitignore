@@ -1,2 +1,10 @@
 *.asv
 *.pyc
+Presentations/Figures/googleCar.jpg
+Presentations/Figures/alphaGo.png
+*.snm
+*.gz
+*.toc
+*.aux
+*.nav
+*.out
