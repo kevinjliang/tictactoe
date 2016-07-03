@@ -14,6 +14,10 @@
 ##   7  |  8  |  9
 
 import numpy as np
+import convolutionalNeuralNet as cnn
+import theano
+import theano.tensor as T
+import cPickle
 
 class tttGrid:
     # Player IDs
@@ -72,12 +76,12 @@ class tttGrid:
         row = (position-1)//self.GRIDSIZE
         col = (position%self.GRIDSIZE)-1
         
-        if self.grid[row, col]!= 0:
-            # Invalid move, symbol already there
+        # Mark the spot with player's symbol if it's open
+        if self.grid[row, col] == 0:
+            self.grid[row, col] = player
+        else:
+        # Invalid move, symbol already there
             return -1
-        
-        # Mark the spot with player's symbol
-        self.grid[row, col] = player
         
         self.updateImage(player,position)
         
@@ -168,7 +172,7 @@ class tttGrid:
 ###############################################################################
 ## tttGame - tic-tac-toe AI: Newell and Simon
 ##
-## Optimal strategey pre-coded. DeepRL will train against it.
+## Optimal strategy pre-coded. DeepRL will train against it.
 ## Takes in the actual grid of tttGrid as input  
         
 class optimalAI:        
@@ -194,7 +198,8 @@ class optimalAI:
         Make either optimal or random move, depending on the AI's difficulty
         '''
         if np.random.uniform()<self.difficulty:
-            return self.optimalMove(tttgrid)
+            move = self.optimalMove(tttgrid)
+            return move
         else:
             moveOptions = [rc2pos(i,j) for i in range(3) for j in range(3) if tttgrid.grid[i,j]==0]
             move = np.random.choice(moveOptions)            
@@ -468,9 +473,119 @@ class optimalAI:
             return 0
         else:
             return np.random.choice(availableSides)
+                                       
+
                     
-                    
-# Convert row and column coordinates (row,col) to position number (1-9)                    
+###############################################################################
+## tttGame - tic-tac-toe AI: Using deep RL policy gradients
+##
+## Starts with no prior knowledge of rules or strategy to win, and learns by playing many games
+## Takes in 125x125 image of tttGrid as input
+
+class deepAI:
+    def __init__(self, alpha=1e-4,gamma=0.95,epsilon=0.02):       
+        # Convolutional neural net used as function approximator
+        rng = np.random.RandomState(1337)
+        self.net = self.tttCNN(rng)              # <---- This might not be quite right  
+        
+        # Hyperparameters
+        self.alpha = alpha                       # Learning rate
+        self.gamma = gamma                       # Discount rate
+        self.epsilon = epsilon                   # Exploration rate
+        
+        # Flag to have AI announce move; default to off
+        self.announce = False
+
+    
+    class tttCNN:
+        '''
+        Define the convolutional neural network architecture
+        
+        Currently:
+        CNN w/ maxPool -> CNN w/ maxPool -> fully connected layer -> logistic
+        '''
+        def __init__(self, rng):
+            self.x = T.matrix('x')   # the data is presented as rasterized images
+            self.y = T.ivector('y')  # the labels are presented as 1D vector of
+                        # [int] labels            
+            
+            ## Network Architecture
+            # Construct the first convolutional pooling layer:
+            self.layer0 = cnn.LeNetConvPoolLayer(
+                rng,
+                filter_shape=(20, 1, 5, 5),
+                poolsize=(2, 2)
+            )
+            
+            # Construct the second convolutional pooling layer
+            self.layer1 = cnn.LeNetConvPoolLayer(
+                rng,
+                filter_shape=(50, 20, 5, 5),
+                poolsize=(2, 2)
+            )
+
+            # Fully connected hidden layer
+            self.layer2 = cnn.HiddenLayer(
+                rng,
+                n_in= 50 * 4 * 4,
+                n_out=500,
+                activation=T.tanh
+            )
+
+            # Logistic regression with softmax
+            self.layer3 = cnn.LogisticRegression(input=self.layer2.output, n_in=500, n_out=10)
+
+            # the cost we minimize during training is the NLL of the model
+            self.cost = self.layer3.negative_log_likelihood(self.y)
+        
+        def forward(self,input,image_shape):
+            '''
+            Perform a forward pass
+            
+            TODO: need to figure out how to reformat input into 4D tensor
+            TODO: looking into removing image_shape as an input
+            '''
+            layer0_out = self.layer0.forward(input,image_shape)
+            layer1_out = self.layer1.forward(layer0_out,T.shape(layer0_out))
+            layer2_out = self.layer2.forward(layer1_out.flatten(2))
+            layer3_out, move = self.layer3.forward(layer2_out)
+            return move
+
+    def setAnnounce(self,announceSetting):
+        self.announce = announceSetting
+    
+    def loadDeepNet(self,filename):
+        '''
+        Load the parameters/architecture of the deep net from a file
+        '''
+        self.net = cPickle.load(open(filename,'rb'))
+        
+    def saveDeepNet(self,filename):
+        '''
+        Save the deep net to a file
+        '''
+        cPickle.dump(self.net,open(filename,'wb'))
+        
+    def ply(self,image):
+        '''
+        Make either move from deep net (exploitation) or random move (exploration)
+        '''
+        if np.random.uniform()>self.epsilon:
+            # Exploitation: Pick move based on net
+            move = self.net.forward(image,T.shape(image))
+        else:
+            # Exploration: Pick a totally random move
+            move = np.random.randint(low=1,high=10)
+            return move
+
+        
+
+
+###############################################################################
+## Miscellaneous helper functions
+###############################################################################        
+        
+ # Convert row and column coordinates (row,col) to position number (1-9)                    
 def rc2pos(row,col):
     return 3*row + col + 1          
     
@@ -478,13 +593,4 @@ def rc2pos(row,col):
 def pos2rc(pos):
     row = (pos-1)//3
     col = (pos%3)-1
-    return row,col
-                    
-                    
-                    
-                    
-                    
-                    
-        
-        
-        
+    return row,col       
