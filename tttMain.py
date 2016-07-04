@@ -16,3 +16,5 @@ rng = np.random.RandomState(1337)
 #
 #tttTest.testOptAI()
 
+optAItest = tttTest.testOptAI()
+optAItest.testAll()

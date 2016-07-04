@@ -14,10 +14,10 @@
 ##   7  |  8  |  9
 
 import numpy as np
-import convolutionalNeuralNet as cnn
-import theano
-import theano.tensor as T
-import cPickle
+#import convolutionalNeuralNet as cnn
+#import theano
+#import theano.tensor as T
+#import cPickle
 
 class tttGrid:
     # Player IDs
@@ -176,13 +176,13 @@ class tttGrid:
 ## Takes in the actual grid of tttGrid as input  
         
 class optimalAI:        
-    def __init__(self,identity,tttgrid):
+    def __init__(self,identity,tttgrid,difficulty=0.9):
         # X: 1, O: 10
         self.identity = identity
         self.opponent = [x for x in [tttgrid.X,tttgrid.O] if x!=identity][0]
         
         # Control how often the optimal AI deviates from optimum; default to makinga random move 10% of the time
-        self.difficulty = 0.9
+        self.difficulty = difficulty
         
         # Flag to have AI announce rule being followed; default to off
         self.announce = False
@@ -196,6 +196,8 @@ class optimalAI:
     def ply(self,tttgrid):
         '''
         Make either optimal or random move, depending on the AI's difficulty
+        
+        tttgrid: tttGrid object defined in this file
         '''
         if np.random.uniform()<self.difficulty:
             move = self.optimalMove(tttgrid)
@@ -282,30 +284,34 @@ class optimalAI:
         Rule 1/2: Take the move that wins; if not, block move that allows opponent to win
         Returns position of move that allows "player" to win, or 0 if no such move exists
         '''        
+        wins = []        
         
         # Check rows
         if 2*player in tttgrid.rowWin:
             row = np.where(tttgrid.rowWin==2*player)[0][0]
             col = np.where(tttgrid.grid[row,:]==0)[0][0]
-            return rc2pos(row,col)
+            wins.append(rc2pos(row,col))
 
         # Check columnss
         if 2*player in tttgrid.colWin:
             col = np.where(tttgrid.colWin==2*player)[0][0]
             row = np.where(tttgrid.grid[:,col]==0)[0][0]
-            return rc2pos(row,col)
+            wins.append(rc2pos(row,col))
 
         # Check diagonals
         if 2*player==tttgrid.diag1Win:
             for i in range(3):
                 if tttgrid.grid[tttgrid.DIAG1[i]] == 0:
-                    return rc2pos(tttgrid.DIAG1[i][0],tttgrid.DIAG1[i][1])  
+                    wins.append(rc2pos(tttgrid.DIAG1[i][0],tttgrid.DIAG1[i][1]))  
         if 2*player==tttgrid.diag2Win:
             for i in range(3):
                 if tttgrid.grid[tttgrid.DIAG2[i]] == 0:
-                    return rc2pos(tttgrid.DIAG2[i][0],tttgrid.DIAG2[i][1])
-                    
-        return 0
+                    wins.append(rc2pos(tttgrid.DIAG2[i][0],tttgrid.DIAG2[i][1]))
+        
+        if not wins:    # no wins possible
+            return 0
+        else:
+            return np.random.choice(wins)            
     
     def potentialFork(self,player,tttgrid):
         '''
@@ -361,6 +367,7 @@ class optimalAI:
         Rule 4: Block an opponent's fork with a 2-in-row if possible
         '''
         potential = []
+        twos = []
         
         # Check rows
         for i in range(3):
@@ -368,7 +375,7 @@ class optimalAI:
                 for j in range(3):
                     if tttgrid.grid[i][j] == 0:
                         if rc2pos(i,j) in oppForks:
-                            return rc2pos(i,j)
+                            twos.append(rc2pos(i,j))
                         else:
                             potential.append(rc2pos(i,j))
                         
@@ -378,7 +385,7 @@ class optimalAI:
                 for i in range(3):
                     if tttgrid.grid[i][j] == 0:
                         if rc2pos(i,j) in oppForks:
-                            return rc2pos(i,j)
+                            twos.append(rc2pos(i,j))
                         else:
                             potential.append(rc2pos(i,j))
         
@@ -388,7 +395,7 @@ class optimalAI:
                 if tttgrid.grid[tttgrid.DIAG1[i]] == 0:
                     pos = rc2pos(tttgrid.DIAG1[i][0],tttgrid.DIAG1[i][1])                
                     if pos in oppForks:
-                        return pos
+                        twos.append(pos)
                     else:
                         potential.append(pos)            
         if tttgrid.diag2Win == player:
@@ -396,14 +403,14 @@ class optimalAI:
                 if tttgrid.grid[tttgrid.DIAG2[i]] == 0:
                     pos = rc2pos(tttgrid.DIAG2[i][0],tttgrid.DIAG2[i][1])              
                     if pos in oppForks:
-                        return pos
+                        twos.append(pos)
                     else:
                         potential.append(pos)
         
-        if not potential:
+        if not twos:
             return 0
         else:
-            return np.random.choice(potential)
+            return np.random.choice(twos)
             
     def takeCenter(self,tttgrid):
         '''
@@ -476,107 +483,115 @@ class optimalAI:
                                        
 
                     
-###############################################################################
-## tttGame - tic-tac-toe AI: Using deep RL policy gradients
-##
-## Starts with no prior knowledge of rules or strategy to win, and learns by playing many games
-## Takes in 125x125 image of tttGrid as input
-
-class deepAI:
-    def __init__(self, alpha=1e-4,gamma=0.95,epsilon=0.02):       
-        # Convolutional neural net used as function approximator
-        rng = np.random.RandomState(1337)
-        self.net = self.tttCNN(rng)              # <---- This might not be quite right  
-        
-        # Hyperparameters
-        self.alpha = alpha                       # Learning rate
-        self.gamma = gamma                       # Discount rate
-        self.epsilon = epsilon                   # Exploration rate
-        
-        # Flag to have AI announce move; default to off
-        self.announce = False
-
-    
-    class tttCNN:
-        '''
-        Define the convolutional neural network architecture
-        
-        Currently:
-        CNN w/ maxPool -> CNN w/ maxPool -> fully connected layer -> logistic
-        '''
-        def __init__(self, rng):
-            self.x = T.matrix('x')   # the data is presented as rasterized images
-            self.y = T.ivector('y')  # the labels are presented as 1D vector of
-                        # [int] labels            
-            
-            ## Network Architecture
-            # Construct the first convolutional pooling layer:
-            self.layer0 = cnn.LeNetConvPoolLayer(
-                rng,
-                filter_shape=(20, 1, 5, 5),
-                poolsize=(2, 2)
-            )
-            
-            # Construct the second convolutional pooling layer
-            self.layer1 = cnn.LeNetConvPoolLayer(
-                rng,
-                filter_shape=(50, 20, 5, 5),
-                poolsize=(2, 2)
-            )
-
-            # Fully connected hidden layer
-            self.layer2 = cnn.HiddenLayer(
-                rng,
-                n_in= 50 * 4 * 4,
-                n_out=500,
-                activation=T.tanh
-            )
-
-            # Logistic regression with softmax
-            self.layer3 = cnn.LogisticRegression(input=self.layer2.output, n_in=500, n_out=10)
-
-            # the cost we minimize during training is the NLL of the model
-            self.cost = self.layer3.negative_log_likelihood(self.y)
-        
-        def forward(self,input,image_shape):
-            '''
-            Perform a forward pass
-            
-            TODO: need to figure out how to reformat input into 4D tensor
-            TODO: looking into removing image_shape as an input
-            '''
-            layer0_out = self.layer0.forward(input,image_shape)
-            layer1_out = self.layer1.forward(layer0_out,T.shape(layer0_out))
-            layer2_out = self.layer2.forward(layer1_out.flatten(2))
-            layer3_out, move = self.layer3.forward(layer2_out)
-            return move
-
-    def setAnnounce(self,announceSetting):
-        self.announce = announceSetting
-    
-    def loadDeepNet(self,filename):
-        '''
-        Load the parameters/architecture of the deep net from a file
-        '''
-        self.net = cPickle.load(open(filename,'rb'))
-        
-    def saveDeepNet(self,filename):
-        '''
-        Save the deep net to a file
-        '''
-        cPickle.dump(self.net,open(filename,'wb'))
-        
-    def ply(self,image):
-        '''
-        Make either move from deep net (exploitation) or random move (exploration)
-        '''
-        if np.random.uniform()>self.epsilon:
-            # Exploitation: Pick move based on net
-            move = self.net.forward(image,T.shape(image))
-        else:
-            # Exploration: Pick a totally random move
-            move = np.random.randint(low=1,high=10)
-            return move
+################################################################################
+### tttGame - tic-tac-toe AI: Using deep RL policy gradients
+###
+### Starts with no prior knowledge of rules or strategy to win, and learns by playing many games
+### Takes in 125x125 image of tttGrid as input
+#
+#class deepAI:
+#    def __init__(self,identity,tttgrid,alpha=1e-4,gamma=0.95,epsilon=0.02):       
+#        # X: 1, O: 10
+#        # Note: we set the identity here, but the agent does not use this 
+#        # information when evaluating where to go next when presented a board.
+#        # Rather, this label is for identifying to the tttGrid, which player is 
+#        # making the move.
+#        self.identity = identity
+#        self.opponent = [x for x in [tttgrid.X,tttgrid.O] if x!=identity][0]
+#        
+#        # Convolutional neural net used as function approximator
+#        rng = np.random.RandomState(1337)
+#        self.net = self.tttCNN(rng)              # <---- This might not be quite right  
+#        
+#        # Hyperparameters
+#        self.alpha = alpha                       # Learning rate
+#        self.gamma = gamma                       # Discount rate
+#        self.epsilon = epsilon                   # Exploration rate
+#        
+#        # Flag to have AI announce move; default to off
+#        self.announce = False
+#
+#    
+#    class tttCNN:
+#        '''
+#        Define the convolutional neural network architecture
+#        
+#        Currently:
+#        CNN w/ maxPool -> CNN w/ maxPool -> fully connected layer -> logistic
+#        '''
+#        def __init__(self, rng):
+#            self.x = T.matrix('x')   # the data is presented as rasterized images
+#            self.y = T.ivector('y')  # the labels are presented as 1D vector of
+#                        # [int] labels            
+#            
+#            ## Network Architecture
+#            # Construct the first convolutional pooling layer:
+#            self.layer0 = cnn.LeNetConvPoolLayer(
+#                rng,
+#                filter_shape=(20, 1, 5, 5),
+#                poolsize=(2, 2)
+#            )
+#            
+#            # Construct the second convolutional pooling layer
+#            self.layer1 = cnn.LeNetConvPoolLayer(
+#                rng,
+#                filter_shape=(50, 20, 5, 5),
+#                poolsize=(2, 2)
+#            )
+#
+#            # Fully connected hidden layer
+#            self.layer2 = cnn.HiddenLayer(
+#                rng,
+#                n_in= 50 * 4 * 4,
+#                n_out=500,
+#                activation=T.tanh
+#            )
+#
+#            # Logistic regression with softmax
+#            self.layer3 = cnn.LogisticRegression(input=self.layer2.output, n_in=500, n_out=10)
+#
+#            # the cost we minimize during training is the NLL of the model
+#            self.cost = self.layer3.negative_log_likelihood(self.y)
+#        
+#        def forward(self,input,image_shape):
+#            '''
+#            Perform a forward pass
+#            
+#            TODO: need to figure out how to reformat input into 4D tensor
+#            TODO: looking into removing image_shape as an input
+#            '''
+#            layer0_out = self.layer0.forward(input,image_shape)
+#            layer1_out = self.layer1.forward(layer0_out,T.shape(layer0_out))
+#            layer2_out = self.layer2.forward(layer1_out.flatten(2))
+#            layer3_out, move = self.layer3.forward(layer2_out)
+#            return move
+#
+#    def setAnnounce(self,announceSetting):
+#        self.announce = announceSetting
+#    
+#    def loadDeepNet(self,filename):
+#        '''
+#        Load the parameters/architecture of the deep net from a file
+#        '''
+#        self.net = cPickle.load(open(filename,'rb'))
+#        
+#    def saveDeepNet(self,filename):
+#        '''
+#        Save the deep net to a file
+#        '''
+#        cPickle.dump(self.net,open(filename,'wb'))
+#        
+#    def ply(self,image):
+#        '''
+#        Make either move from deep net (exploitation) or random move (exploration)
+#        '''
+#        if np.random.uniform()>self.epsilon:
+#            # Exploitation: Pick move based on net
+#            move = self.net.forward(image,T.shape(image))
+#        else:
+#            # Exploration: Pick a totally random move
+#            move = np.random.randint(low=1,high=10)
+#            return move
 
         
 
