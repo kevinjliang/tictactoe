@@ -13,8 +13,7 @@ rng = np.random.RandomState(1337)
 #tttTest.testGameXwins()
 #
 #tttTest.testGameOwins()
-#
-#tttTest.testOptAI()
 
 optAItest = tttTest.testOptAI()
 optAItest.testAll()
+optAItest.simulate2OptAIs()

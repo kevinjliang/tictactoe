@@ -14,16 +14,17 @@
 ##   7  |  8  |  9
 
 import numpy as np
-#import convolutionalNeuralNet as cnn
-#import theano
-#import theano.tensor as T
-#import cPickle
+import convolutionalNeuralNet as cnn
+import theano
+import theano.tensor as T
+import cPickle
 
 class tttGrid:
     # Player IDs
     X = 1
     O = 10
     GRIDSIZE = 3;
+    DRAW = 42
     
     # X/O shapes in all 9 locations, for the image
     Xs = np.zeros((125,125,9))
@@ -56,6 +57,7 @@ class tttGrid:
         self.colWin = np.zeros(3)
         self.diag1Win = 0
         self.diag2Win = 0
+        self.movesTaken = 0
         
     def getImage(self):
         return self.image
@@ -70,9 +72,12 @@ class tttGrid:
         return 0 -> no winner yet
         return self.X -> X has won
         return self.O -> O has won
+        return self.DRAW -> game ended in a draw
         
         return -1 -> error
         '''
+        self.movesTaken = self.movesTaken+1       
+        
         row = (position-1)//self.GRIDSIZE
         col = (position%self.GRIDSIZE)-1
         
@@ -117,6 +122,7 @@ class tttGrid:
         return 0 -> no winner yet
         return self.X -> X has won
         return self.O -> O has won
+        return self.DRAW -> game ended in a draw
         
         return -1 -> error
         '''
@@ -138,9 +144,12 @@ class tttGrid:
             return self.X
         elif 3*self.O==self.diag1Win or 3*self.O==self.diag2Win:
             return self.O
-
-        return 0            
+            
+        # If no winner, and 9 moves have been taken, board is filled up and game ends in a draw
+        if self.movesTaken==9:
+            return self.DRAW            
         
+        return 0            
         
     def newGame(self):
         '''
@@ -160,12 +169,7 @@ class tttGrid:
         self.colWin = np.zeros(3)
         self.diag1Win = 0
         self.diag2Win = 0
-        
-###############################################################################
-## tttGame - tic-tac-toe game between DeepRL and optimalAI
-##
-        
-#class tttGame:        
+        self.movesTaken = 0
     
         
         
@@ -483,118 +487,232 @@ class optimalAI:
                                        
 
                     
-################################################################################
-### tttGame - tic-tac-toe AI: Using deep RL policy gradients
-###
-### Starts with no prior knowledge of rules or strategy to win, and learns by playing many games
-### Takes in 125x125 image of tttGrid as input
-#
-#class deepAI:
-#    def __init__(self,identity,tttgrid,alpha=1e-4,gamma=0.95,epsilon=0.02):       
-#        # X: 1, O: 10
-#        # Note: we set the identity here, but the agent does not use this 
-#        # information when evaluating where to go next when presented a board.
-#        # Rather, this label is for identifying to the tttGrid, which player is 
-#        # making the move.
-#        self.identity = identity
-#        self.opponent = [x for x in [tttgrid.X,tttgrid.O] if x!=identity][0]
-#        
-#        # Convolutional neural net used as function approximator
-#        rng = np.random.RandomState(1337)
-#        self.net = self.tttCNN(rng)              # <---- This might not be quite right  
-#        
-#        # Hyperparameters
-#        self.alpha = alpha                       # Learning rate
-#        self.gamma = gamma                       # Discount rate
-#        self.epsilon = epsilon                   # Exploration rate
-#        
-#        # Flag to have AI announce move; default to off
-#        self.announce = False
-#
-#    
-#    class tttCNN:
-#        '''
-#        Define the convolutional neural network architecture
-#        
-#        Currently:
-#        CNN w/ maxPool -> CNN w/ maxPool -> fully connected layer -> logistic
-#        '''
-#        def __init__(self, rng):
-#            self.x = T.matrix('x')   # the data is presented as rasterized images
-#            self.y = T.ivector('y')  # the labels are presented as 1D vector of
-#                        # [int] labels            
-#            
-#            ## Network Architecture
-#            # Construct the first convolutional pooling layer:
-#            self.layer0 = cnn.LeNetConvPoolLayer(
-#                rng,
-#                filter_shape=(20, 1, 5, 5),
-#                poolsize=(2, 2)
-#            )
-#            
-#            # Construct the second convolutional pooling layer
-#            self.layer1 = cnn.LeNetConvPoolLayer(
-#                rng,
-#                filter_shape=(50, 20, 5, 5),
-#                poolsize=(2, 2)
-#            )
-#
-#            # Fully connected hidden layer
-#            self.layer2 = cnn.HiddenLayer(
-#                rng,
-#                n_in= 50 * 4 * 4,
-#                n_out=500,
-#                activation=T.tanh
-#            )
-#
-#            # Logistic regression with softmax
-#            self.layer3 = cnn.LogisticRegression(input=self.layer2.output, n_in=500, n_out=10)
-#
-#            # the cost we minimize during training is the NLL of the model
-#            self.cost = self.layer3.negative_log_likelihood(self.y)
-#        
-#        def forward(self,input,image_shape):
-#            '''
-#            Perform a forward pass
-#            
-#            TODO: need to figure out how to reformat input into 4D tensor
-#            TODO: looking into removing image_shape as an input
-#            '''
-#            layer0_out = self.layer0.forward(input,image_shape)
-#            layer1_out = self.layer1.forward(layer0_out,T.shape(layer0_out))
-#            layer2_out = self.layer2.forward(layer1_out.flatten(2))
-#            layer3_out, move = self.layer3.forward(layer2_out)
-#            return move
-#
-#    def setAnnounce(self,announceSetting):
-#        self.announce = announceSetting
-#    
-#    def loadDeepNet(self,filename):
-#        '''
-#        Load the parameters/architecture of the deep net from a file
-#        '''
-#        self.net = cPickle.load(open(filename,'rb'))
-#        
-#    def saveDeepNet(self,filename):
-#        '''
-#        Save the deep net to a file
-#        '''
-#        cPickle.dump(self.net,open(filename,'wb'))
-#        
-#    def ply(self,image):
-#        '''
-#        Make either move from deep net (exploitation) or random move (exploration)
-#        '''
-#        if np.random.uniform()>self.epsilon:
-#            # Exploitation: Pick move based on net
-#            move = self.net.forward(image,T.shape(image))
-#        else:
-#            # Exploration: Pick a totally random move
-#            move = np.random.randint(low=1,high=10)
-#            return move
+###############################################################################
+## tttGame - tic-tac-toe AI: Using deep RL policy gradients
+##
+## Starts with no prior knowledge of rules or strategy to win, and learns by playing many games
+## Takes in 125x125 image of tttGrid as input
+
+class deepAI:
+    def __init__(self,alpha=1e-4,gamma=0.95,epsilon=0.02):       
+        self.identity = []
+        self.opponent = []
+        
+        # Convolutional neural net used as function approximator
+        rng = np.random.RandomState(1337)
+        self.net = self.tttCNN(rng)              # <---- This might not be quite right  
+        
+        # Hyperparameters
+        self.alpha = alpha                       # Learning rate
+        self.gamma = gamma                       # Discount rate
+        self.epsilon = epsilon                   # Exploration rate
+        
+        # Flag to have AI announce move; default to off
+        self.announce = False
+
+    
+    class tttCNN:
+        '''
+        Define the convolutional neural network architecture
+        
+        Currently:
+        CNN w/ maxPool -> CNN w/ maxPool -> fully connected layer -> logistic
+        '''
+        def __init__(self, rng):
+            self.x = T.matrix('x')   # the data is presented as rasterized images
+            self.y = T.ivector('y')  # the labels are presented as 1D vector of
+                        # [int] labels            
+            
+            ## Network Architecture
+            # Construct the first convolutional pooling layer:
+            self.layer0 = cnn.LeNetConvPoolLayer(
+                rng,
+                filter_shape=(20, 1, 5, 5),
+                poolsize=(2, 2)
+            )
+            
+            # Construct the second convolutional pooling layer
+            self.layer1 = cnn.LeNetConvPoolLayer(
+                rng,
+                filter_shape=(50, 20, 5, 5),
+                poolsize=(2, 2)
+            )
+
+            # Fully connected hidden layer
+            self.layer2 = cnn.HiddenLayer(
+                rng,
+                n_in= 50 * 4 * 4,
+                n_out=500,
+                activation=T.tanh
+            )
+
+            # Logistic regression with softmax
+            self.layer3 = cnn.LogisticRegression(input=self.layer2.output, n_in=500, n_out=10)
+
+            # the cost we minimize during training is the NLL of the model
+            self.cost = self.layer3.negative_log_likelihood(self.y)
+        
+        def forward(self,input,image_shape):
+            '''
+            Perform a forward pass
+            
+            TODO: need to figure out how to reformat input into 4D tensor
+            TODO: looking into removing image_shape as an input
+            '''
+            layer0_out = self.layer0.forward(input,image_shape)
+            layer1_out = self.layer1.forward(layer0_out,T.shape(layer0_out))
+            layer2_out = self.layer2.forward(layer1_out.flatten(2))
+            layer3_out, move = self.layer3.forward(layer2_out)
+            return move
+            
+#        def backward(self,):
+
+    def setIdentity(self,identity,opponentIdentity):
+        # X: 1, O: 10
+        # Note: we set the identity here, but the agent does not use this 
+        # information when evaluating where to go next when presented a board.
+        # Rather, this label is for identifying to the tttGrid, which player is 
+        # making the move.
+        self.identity = identity
+        self.opponent = opponentIdentity
+        
+    def setAnnounce(self,announceSetting):
+        self.announce = announceSetting
+    
+    def loadDeepNet(self,filename):
+        '''
+        Load the parameters/architecture of the deep net from a file
+        '''
+        self.net = cPickle.load(open(filename,'rb'))
+        
+    def saveDeepNet(self,filename):
+        '''
+        Save the deep net to a file
+        '''
+        cPickle.dump(self.net,open(filename,'wb'))
+        
+    def ply(self,tttGrid):
+        '''
+        Make either move from deep net (exploitation) or random move (exploration)
+        
+        Pass in grid, but only use image information
+        '''
+        image = ttt.Grid.getImage
+        if np.random.uniform()>self.epsilon:
+            # Exploitation: Pick move based on net
+            move = self.net.forward(image,T.shape(image))
+        else:
+            # Exploration: Pick a totally random move
+            move = np.random.randint(low=1,high=10)
+            return move
+
+class DeepRL_PolicyGradient:
+    '''
+    Trains a class "deepAI" agent to play tic-tac-toe on tttGrid by playing
+    against a class "optimalAI" agent
+    '''
+    def __init__(self,deepAI,alpha=1e-4,gamma=0.95,epsilon=0.02):
+        self.player = deepAI
+        
+        # TODO: Figure if this should be placed here or in deepAI
+        # Hyperparameters
+        self.alpha = alpha                       # Learning rate
+        self.gamma = gamma                       # Discount rate
+        self.epsilon = epsilon                   # Exploration rate
+    
+    def train(self,totalGames,updateRate=500,saveRate=500):
+        # Set up a tictactoe grid/game
+        game = tttGrid()
+        
+        # Initialize an opponent who plays X and an opponent who plays O
+        OpponentAs_X = optimalAI(game.X,game,difficulty=0.7)
+        OpponentAs_O = optimalAI(game.O,game,difficulty=0.7)
+        
+        # Pre-allocate space for maximum number of moves (each an image frame) over games within an update batch
+        # The maximum possible number of images/moves occurs when the player is X and every game ends in a tie (5 moves)         
+        gameImages = np.empty((game.image[0],game.image[1],5*updateRate))*np.nan
+        # Actions taken after each image in gameImages was presented
+        actions = np.empty(5*updateRate)*np.nan
+        # Indicate the eventual winner of each frame
+        # (1,0,-1) for player's (win,tie,loss); -2 if rule broken
+        gameWinners = np.empty(5*updateRate)*np.nan
 
         
-
+        # Iterator within each batch for indexing into gameImages, gameIdentities, gameWinners
+        i = 0     
+        
+        for n in range(totalGames):
+            # Wipe the board for a new game
+            game.newGame()
+            
+            # Randomly assign player and opponent identities
+            playerIdentity = np.random.choice([game.X,game.O])
+            if playerIdentity == game.X:
+                self.player.setIdentity(game.X,game.O)
+                playerX = self.player
+                playerO = OpponentAs_O
+            else:
+                self.player.setIdentity(game.O,game.X)
+                playerO = self.player
+                playerX = OpponentAs_X
+            
+            winner = 0
+            gameStart = i
+            playerToGo = playerX
+            
+            # Play a game to completion
+            while winner==0:
+                # Save image before move was made
+                gameImages[:,:,i] = game.getImage()
+                
+                # Have player make move
+                move = playerToGo.ply(game)
+                actions[i] = move
+                winner = game.move(playerToGo.identity,move)
+                
+                # If gameover
+                if winner==game.X:          # X won
+                    if playerToGo.identity!=game.X:
+                        # Make sure something weird didn't just happen
+                        # TODO: Turn into exception
+                        print("Someone won, and it wasn't the player that just went...")
+                        return
+                    
+                    if self.player.identity==game.X:
+                        gameWinners[gameStart:(i+1)] = 1
+                    else:
+                        gameWinners[gameStart:(i+1)] = -1
+                elif winner==game.O:        # O won
+                    if playerToGo.identity!=game.O:
+                        # Make sure something weird didn't just happen
+                        # TODO: Turn into exception
+                        print("Someone won, and it wasn't the player that just went...")
+                        return
+                    
+                    if self.player.identity==game.O:
+                        gameWinners[gameStart:(i+1)] = 1
+                    else:
+                        gameWinners[gameStart:(i+1)] = -1
+                elif winner==game.DRAW:     # Game ended in draw
+                    gameWinners[gameStart:(i+1)] = 0
+                elif winner==-1:            # Someone messed up (rule broken)
+                    gameWinners[gameStart:(i+1)] = -2
+                    
+                # The other player's turn to go next
+                if playerToGo.identity == playerX:
+                    playerToGo = playerO
+                else:
+                    playerToGo = playerX        
+                
+                # Increment batch counter
+                i = i + 1
+            
+            # Perform update on deep net parameters every "updateRate" number of games                
+            if n % updateRate == (updateRate-1):
+                imageBatch = gameImages[~np.isnan(gameImages)]
+                winnerBatch = gameWinners[~np.isnan(gameWinners)]
+                actions = actions[~np.isnan(actions)]
+                
 
 ###############################################################################
 ## Miscellaneous helper functions

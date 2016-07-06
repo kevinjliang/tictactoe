@@ -90,7 +90,7 @@ class testOptAI:
         self.testForkResult = []
         self.testBlockForkResult = []
         
-    def simulate2OptAIs():
+    def simulate2OptAIs(self):
         game = ttt.tttGrid()
         aiX = ttt.optimalAI(game.X,game)
         aiX.setDifficulty(0.5)
@@ -102,31 +102,37 @@ class testOptAI:
         aiXMove = aiX.ply(game)
         winner = game.move(aiX.identity,aiXMove)
         print("Winner after move 1: {0}".format(winner))
+        plt.figure(0)
         plt.imshow(game.getImage())
         
         aiOMove = aiO.ply(game)
         winner = game.move(aiO.identity,aiOMove)
         print("Winner after move 2: {0}".format(winner))
+        plt.figure(1)        
         plt.imshow(game.getImage())
         
         aiXMove = aiX.ply(game)
         winner = game.move(aiX.identity,aiXMove)
         print("Winner after move 3: {0}".format(winner))
+        plt.figure(2)        
         plt.imshow(game.getImage())
         
         aiOMove = aiO.ply(game)
         winner = game.move(aiO.identity,aiOMove)
         print("Winner after move 4: {0}".format(winner))
+        plt.figure(3)        
         plt.imshow(game.getImage())
         
         aiXMove = aiX.ply(game)
         winner = game.move(aiX.identity,aiXMove)
         print("Winner after move 5: {0}".format(winner))
+        plt.figure(4)
         plt.imshow(game.getImage())
         
         aiOMove = aiO.ply(game)
         winner = game.move(aiO.identity,aiOMove)
         print("Winner after move 6: {0}".format(winner))
+        plt.figure(5)
         plt.imshow(game.getImage())
     
     def testAll(self):
