@@ -498,14 +498,21 @@ class deepAI:
         self.identity = []
         self.opponent = []
         
-        # Convolutional neural net used as function approximator
-        rng = np.random.RandomState(1337)
-        self.net = self.tttCNN(rng)              # <---- This might not be quite right  
-        
         # Hyperparameters
         self.alpha = alpha                       # Learning rate
         self.gamma = gamma                       # Discount rate
         self.epsilon = epsilon                   # Exploration rate
+        
+        # Rewards for various outcomes
+        self.r_w = 1                             # win
+        self.r_d = -0.05                         # draw
+        self.r_l = -1                            # loss
+        self.r_b = -5                            # broken rule
+        
+        
+        # Convolutional neural net used as function approximator
+        rng = np.random.RandomState(1337)
+        self.net = self.tttCNN(rng)              # <---- This might not be quite right          
         
         # Flag to have AI announce move; default to off
         self.announce = False
@@ -548,9 +555,11 @@ class deepAI:
 
             # Logistic regression with softmax
             self.layer3 = cnn.LogisticRegression(input=self.layer2.output, n_in=500, n_out=10)
-
-            # the cost we minimize during training is the NLL of the model
-            self.cost = self.layer3.negative_log_likelihood(self.y)
+          
+        def cost(self,images,actions):          
+            # Cost function (last layer)
+            layer3_out, move = self.forward(images,T.shape(images))
+            return self.layer3.negative_log_likelihood(layer3_out,actions)
         
         def forward(self,input,image_shape):
             '''
@@ -563,15 +572,14 @@ class deepAI:
             layer1_out = self.layer1.forward(layer0_out,T.shape(layer0_out))
             layer2_out = self.layer2.forward(layer1_out.flatten(2))
             layer3_out, move = self.layer3.forward(layer2_out)
-            return move
+            return layer3_out, move
             
-#        def backward(self,):
 
     def setIdentity(self,identity,opponentIdentity):
         # X: 1, O: 10
         # Note: we set the identity here, but the agent does not use this 
         # information when evaluating where to go next when presented a board.
-        # Rather, this label is for identifying to the tttGrid, which player is 
+        # Rather, this label is for identifying to the tttGrid which player is 
         # making the move.
         self.identity = identity
         self.opponent = opponentIdentity
@@ -597,14 +605,72 @@ class deepAI:
         
         Pass in grid, but only use image information
         '''
-        image = ttt.Grid.getImage
+        image = tttGrid.getImage()
         if np.random.uniform()>self.epsilon:
             # Exploitation: Pick move based on net
-            move = self.net.forward(image,T.shape(image))
+            layer3_out, move = self.net.forward(image,T.shape(image))
         else:
             # Exploration: Pick a totally random move
             move = np.random.randint(low=1,high=10)
             return move
+            
+    def updateNetParams(self,images,outcomes,actions):
+        '''
+        Update parameters with backpropagation
+        
+        Individually find the (4) gradients that encourage actions that led
+        to games that were won (w), drawn (d), lost (l), and ended because 
+        of a broken rule (b). Weight gradients by their respective rewards
+        
+        images:     volume of 125x125 images that the deep agent was presented with
+        outcomes:   the eventual outcome of the game (1,0,-1,-2) -> deep agent (won,drawn,loss,broke rule)
+        actions:    the action that the deep agent took when presented with each frame in images
+        '''
+        images_w = images[:,:,outcomes==1]
+        images_d = images[:,:,outcomes==0]
+        images_l = images[:,:,outcomes==-1]
+        images_b = images[:,:,outcomes==-2]
+        
+        actions_w = actions[outcomes==1]
+        actions_d = actions[outcomes==0]
+        actions_l = actions[outcomes==-1]
+        actions_b = actions[outcomes==-2]
+        
+        params = self.net.layer3.params + self.net.layer2.params + self.net.layer1.params + self.net.layer0.params        
+        
+        grad_w = self.gradient(images_w,actions_w,params)
+        grad_d = self.gradient(images_d,actions_d,params)
+        grad_l = self.gradient(images_l,actions_l,params)
+        grad_b = self.gradient(images_b,actions_b,params)
+        
+        grad = grad_w*self.r_w + grad_d*self.r_d + grad_l*self.r_l + grad_b*self.r_b
+        
+        updates = [
+            (param_i, param_i - self.alpha * grad_i)
+            for param_i, grad_i in zip(params, grad)
+            ]
+            
+        x = T.matrix('x')   # the data is presented as rasterized images
+        y = T.ivector('y')  # the labels are presented as 1D vector of
+            
+        train_model = theano.function(
+            [index],
+            cost,
+            updates=updates,
+            givens={
+                x: train_set_x[index * batch_size: (index + 1) * batch_size],
+                y: train_set_y[index * batch_size: (index + 1) * batch_size]
+            }
+        )
+
+    def gradient(self,images,actions,params):
+        '''
+        Find gradient that nudges parameters in direction encouraging the
+        '''       
+        # the cost we minimize during training is the NLL of the model
+        cost = self.net.cost(images,actions)
+        
+        return T.grad(cost, params)
 
 class DeepRL_PolicyGradient:
     '''
@@ -632,13 +698,13 @@ class DeepRL_PolicyGradient:
         # The maximum possible number of images/moves occurs when the player is X and every game ends in a tie (5 moves)         
         gameImages = np.empty((game.image[0],game.image[1],5*updateRate))*np.nan
         # Actions taken after each image in gameImages was presented
-        actions = np.empty(5*updateRate)*np.nan
+        gameActions = np.empty(5*updateRate)*np.nan
         # Indicate the eventual winner of each frame
         # (1,0,-1) for player's (win,tie,loss); -2 if rule broken
-        gameWinners = np.empty(5*updateRate)*np.nan
+        gameOutcomes = np.empty(5*updateRate)*np.nan
 
         
-        # Iterator within each batch for indexing into gameImages, gameIdentities, gameWinners
+        # Iterator within each batch for indexing into gameImages, gameActions, gameOutcomes
         i = 0     
         
         for n in range(totalGames):
@@ -667,7 +733,7 @@ class DeepRL_PolicyGradient:
                 
                 # Have player make move
                 move = playerToGo.ply(game)
-                actions[i] = move
+                gameActions[i] = move
                 winner = game.move(playerToGo.identity,move)
                 
                 # If gameover
@@ -679,9 +745,9 @@ class DeepRL_PolicyGradient:
                         return
                     
                     if self.player.identity==game.X:
-                        gameWinners[gameStart:(i+1)] = 1
+                        gameOutcomes[gameStart:(i+1)] = 1
                     else:
-                        gameWinners[gameStart:(i+1)] = -1
+                        gameOutcomes[gameStart:(i+1)] = -1
                 elif winner==game.O:        # O won
                     if playerToGo.identity!=game.O:
                         # Make sure something weird didn't just happen
@@ -690,13 +756,13 @@ class DeepRL_PolicyGradient:
                         return
                     
                     if self.player.identity==game.O:
-                        gameWinners[gameStart:(i+1)] = 1
+                        gameOutcomes[gameStart:(i+1)] = 1
                     else:
-                        gameWinners[gameStart:(i+1)] = -1
+                        gameOutcomes[gameStart:(i+1)] = -1
                 elif winner==game.DRAW:     # Game ended in draw
-                    gameWinners[gameStart:(i+1)] = 0
+                    gameOutcomes[gameStart:(i+1)] = 0
                 elif winner==-1:            # Someone messed up (rule broken)
-                    gameWinners[gameStart:(i+1)] = -2
+                    gameOutcomes[gameStart:(i+1)] = -2
                     
                 # The other player's turn to go next
                 if playerToGo.identity == playerX:
@@ -710,8 +776,8 @@ class DeepRL_PolicyGradient:
             # Perform update on deep net parameters every "updateRate" number of games                
             if n % updateRate == (updateRate-1):
                 imageBatch = gameImages[~np.isnan(gameImages)]
-                winnerBatch = gameWinners[~np.isnan(gameWinners)]
-                actions = actions[~np.isnan(actions)]
+                outcomeBatch = gameOutcomes[~np.isnan(gameOutcomes)]
+                actionBatch = gameActions[~np.isnan(gameActions)]
                 
 
 ###############################################################################

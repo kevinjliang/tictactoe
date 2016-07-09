@@ -242,7 +242,7 @@ class LogisticRegression:
         return self.p_y_given_x, self.y_pred
 
 
-    def negative_log_likelihood(self, y):
+    def negative_log_likelihood(self,p_y_given_x,y):
         """Return the mean of the negative log-likelihood of the prediction
         of this model under a given target distribution.
         .. math::
@@ -267,7 +267,7 @@ class LogisticRegression:
         # LP[n-1,y[n-1]]] and T.mean(LP[T.arange(y.shape[0]),y]) is
         # the mean (across minibatch examples) of the elements in v,
         # i.e., the mean log-likelihood across the minibatch.
-        return -T.mean(T.log(self.p_y_given_x)[T.arange(y.shape[0]), y])
+        return -T.mean(T.log(p_y_given_x)[T.arange(y.shape[0]), y])
         # end-snippet-2
 
     def errors(self, y):
