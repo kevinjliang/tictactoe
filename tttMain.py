@@ -14,6 +14,9 @@ rng = np.random.RandomState(1337)
 #
 #tttTest.testGameOwins()
 
-optAItest = tttTest.testOptAI()
-optAItest.testAll()
-optAItest.simulate2OptAIs()
+#optAItest = tttTest.testOptAI()
+#optAItest.testAll()
+#optAItest.simulate2OptAIs()
+
+deepAItest = tttTest.testDeepAI()
+deepAItest.playNGames(1)

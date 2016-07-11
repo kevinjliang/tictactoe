@@ -17,7 +17,7 @@ import numpy as np
 import convolutionalNeuralNet as cnn
 import theano
 import theano.tensor as T
-import cPickle
+import pickle
 
 class tttGrid:
     # Player IDs
@@ -541,20 +541,22 @@ class deepAI:
             # Construct the second convolutional pooling layer
             self.layer1 = cnn.LeNetConvPoolLayer(
                 rng,
-                filter_shape=(50, 20, 5, 5),
+                filter_shape=(40, 20, 5, 5),
                 poolsize=(2, 2)
             )
 
             # Fully connected hidden layer
             self.layer2 = cnn.HiddenLayer(
                 rng,
-                n_in= 50 * 4 * 4,
+                n_in= 40 * 4 * 4,
                 n_out=500,
                 activation=T.tanh
             )
 
             # Logistic regression with softmax
-            self.layer3 = cnn.LogisticRegression(input=self.layer2.output, n_in=500, n_out=10)
+            self.layer3 = cnn.LogisticRegression(n_in=500, n_out=10)
+            
+            
           
         def cost(self,images,actions):          
             # Cost function (last layer)
@@ -591,13 +593,13 @@ class deepAI:
         '''
         Load the parameters/architecture of the deep net from a file
         '''
-        self.net = cPickle.load(open(filename,'rb'))
+        self.net = pickle.load(open(filename,'rb'))
         
     def saveDeepNet(self,filename):
         '''
         Save the deep net to a file
         '''
-        cPickle.dump(self.net,open(filename,'wb'))
+        pickle.dump(self.net,open(filename,'wb'))
         
     def ply(self,tttGrid):
         '''
@@ -608,10 +610,16 @@ class deepAI:
         image = tttGrid.getImage()
         if np.random.uniform()>self.epsilon:
             # Exploitation: Pick move based on net
-            layer3_out, move = self.net.forward(image,T.shape(image))
+            layer3_out, move = self.net.forward(image.reshape(1,1,image.shape[0],image.shape[1]),(1,1,image.shape[0],image.shape[1]))
+            
+            if self.announce:
+                print("***Deep Agent is exploiting with move {0}".format(move))
         else:
             # Exploration: Pick a totally random move
             move = np.random.randint(low=1,high=10)
+            
+            if self.announce:
+                print("***Deep Agent is exploring with move {0}".format(move))
             return move
             
     def updateNetParams(self,images,outcomes,actions):
@@ -638,39 +646,57 @@ class deepAI:
         
         params = self.net.layer3.params + self.net.layer2.params + self.net.layer1.params + self.net.layer0.params        
         
-        grad_w = self.gradient(images_w,actions_w,params)
-        grad_d = self.gradient(images_d,actions_d,params)
-        grad_l = self.gradient(images_l,actions_l,params)
-        grad_b = self.gradient(images_b,actions_b,params)
+        x_w = T.matrix('x_w')   # the data is presented as rasterized images
+        x_d = T.matrix('x_d')
+        x_l = T.matrix('x_l')
+        x_b = T.matrix('x_b')
+        y_w = T.ivector('y_w')  # the labels are presented as 1D vector of
+        y_d = T.ivector('y_d')  # [int] labels
+        y_l = T.ivector('y_l')  
+        y_b = T.ivector('y_b')  
         
-        grad = grad_w*self.r_w + grad_d*self.r_d + grad_l*self.r_l + grad_b*self.r_b
+        cost = self.net.cost(x_w,y_w)*self.r_w + self.net.cost(x_d,y_d)*self.r_d + self.net.cost(x_l,y_l)*self.r_l + self.net.cost(x_b,y_b)*self.r_b 
+        grads = T.grad(cost,params)        
         
+#        grad_w = self.gradient(images_w,actions_w,params)
+#        grad_d = self.gradient(images_d,actions_d,params)
+#        grad_l = self.gradient(images_l,actions_l,params)
+#        grad_b = self.gradient(images_b,actions_b,params)
+#        
+#        grad = grad_w*self.r_w + grad_d*self.r_d + grad_l*self.r_l + grad_b*self.r_b
+                
         updates = [
             (param_i, param_i - self.alpha * grad_i)
-            for param_i, grad_i in zip(params, grad)
+            for param_i, grad_i in zip(params, grads)
             ]
             
-        x = T.matrix('x')   # the data is presented as rasterized images
-        y = T.ivector('y')  # the labels are presented as 1D vector of
-            
         train_model = theano.function(
-            [index],
+            [],
             cost,
             updates=updates,
             givens={
-                x: train_set_x[index * batch_size: (index + 1) * batch_size],
-                y: train_set_y[index * batch_size: (index + 1) * batch_size]
-            }
+                x_w: images_w,
+                y_w: actions_w,
+                x_d: images_d,
+                y_d: actions_d,
+                x_l: images_l,
+                y_l: actions_l,
+                x_b: images_b,
+                y_b: actions_b}
         )
-
-    def gradient(self,images,actions,params):
-        '''
-        Find gradient that nudges parameters in direction encouraging the
-        '''       
-        # the cost we minimize during training is the NLL of the model
-        cost = self.net.cost(images,actions)
         
-        return T.grad(cost, params)
+        
+        cost = train_model()     
+        
+
+#    def gradient(self,images,actions,params):
+#        '''
+#        Find gradient that nudges parameters in direction encouraging the
+#        '''       
+#        # the cost we minimize during training is the NLL of the model
+#        cost = self.net.cost(images,actions)
+#        
+#        return T.grad(cost, params)
 
 class DeepRL_PolicyGradient:
     '''
@@ -696,7 +722,7 @@ class DeepRL_PolicyGradient:
         
         # Pre-allocate space for maximum number of moves (each an image frame) over games within an update batch
         # The maximum possible number of images/moves occurs when the player is X and every game ends in a tie (5 moves)         
-        gameImages = np.empty((game.image[0],game.image[1],5*updateRate))*np.nan
+        gameImages = np.empty((game.image.shape[0],game.image.shape[1],5*updateRate))*np.nan
         # Actions taken after each image in gameImages was presented
         gameActions = np.empty(5*updateRate)*np.nan
         # Indicate the eventual winner of each frame
@@ -765,7 +791,7 @@ class DeepRL_PolicyGradient:
                     gameOutcomes[gameStart:(i+1)] = -2
                     
                 # The other player's turn to go next
-                if playerToGo.identity == playerX:
+                if playerToGo.identity == playerX.identity:
                     playerToGo = playerO
                 else:
                     playerToGo = playerX        

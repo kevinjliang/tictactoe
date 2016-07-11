@@ -8,6 +8,7 @@ Created on Wed Jun 29 10:19:07 2016
 ## Tic-Tac-Toe Deep RL tests
 import tictactoe as ttt
 import matplotlib.pyplot as plt
+import numpy as np
 
 ## Grid tests
 def testGameXwins():
@@ -286,3 +287,108 @@ class testOptAI:
             return False
         
         return True
+        
+        
+## Deep AI tests
+class testDeepAI:
+    def __init__(self):
+        self.game = game = ttt.tttGrid()
+        self.deepAI = ttt.deepAI()
+        self.aiX = ttt.optimalAI(game.X,game,.1)
+        self.aiO = ttt.optimalAI(game.O,game,.1)        
+        
+    
+    def playNGames(self,N):
+        updateRate = N
+        gameImages = np.empty((self.game.image.shape[0],self.game.image.shape[1],5*updateRate))*np.nan
+        gameActions = np.empty(5*updateRate)*np.nan
+        gameOutcomes = np.empty(5*updateRate)*np.nan
+
+        wins = 0
+        draws = 0
+        losses = 0
+        broken = 0
+        
+        # Iterator within each batch for indexing into gameImages, gameActions, gameOutcomes
+        i = 0     
+        
+        for n in range(N):
+            self.game.newGame()
+            
+            # Randomly assign player and opponent identities
+            playerIdentity = np.random.choice([self.game.X,self.game.O])
+            if playerIdentity == self.game.X:
+                self.deepAI.setIdentity(self.game.X,self.game.O)
+                playerX = self.deepAI
+                playerO = self.aiO
+                
+                print("DeepAI is {0}".format(self.game.X))
+            else:
+                self.deepAI.setIdentity(self.game.O,self.game.X)
+                playerO = self.deepAI
+                playerX = self.aiX
+                
+                print("DeepAI is {0}".format(self.game.O))
+            
+            winner = 0
+            gameStart = i
+            playerToGo = playerX
+            
+            # Play a game to completion
+            while winner==0:
+                print("Player to go: {0}".format(playerToGo.identity))
+                
+                # Save image before move was made
+                gameImages[:,:,i] = self.game.getImage()
+                
+                # Have player make move
+                move = playerToGo.ply(self.game)
+                gameActions[i] = move
+                winner = self.game.move(playerToGo.identity,move)
+                
+                # If gameover
+                if winner==self.game.X:          # X won
+                    if playerToGo.identity!=self.game.X:
+                        # Make sure something weird didn't just happen
+                        # TODO: Turn into exception
+                        print("Someone won, and it wasn't the player that just went...")
+                        return
+                    
+                    if self.deepAI.identity==self.game.X:
+                        gameOutcomes[gameStart:(i+1)] = 1
+                        wins = wins+1
+                    else:
+                        gameOutcomes[gameStart:(i+1)] = -1
+                        losses = losses+1
+                elif winner==self.game.O:        # O won
+                    if playerToGo.identity!=self.game.O:
+                        # Make sure something weird didn't just happen
+                        # TODO: Turn into exception
+                        print("Someone won, and it wasn't the player that just went...")
+                        return
+                    
+                    if self.deepAI.identity==self.game.O:
+                        gameOutcomes[gameStart:(i+1)] = 1
+                        wins = wins+1
+                    else:
+                        gameOutcomes[gameStart:(i+1)] = -1
+                        losses = losses+1
+                elif winner==self.game.DRAW:     # Game ended in draw
+                    gameOutcomes[gameStart:(i+1)] = 0
+                    draws = draws+1
+                elif winner==-1:            # Someone messed up (rule broken)
+                    gameOutcomes[gameStart:(i+1)] = -2
+                    broken = broken+1
+                    
+                # The other player's turn to go next
+                if playerToGo.identity == playerX.identity:
+                    
+                    playerToGo = playerO
+                else:
+                    playerToGo = playerX        
+
+        
+                # Increment batch counter
+                i = i + 1
+                
+        print("Wins: {0} \nDraws: {1} \nLosses: {2} \nBroken: {3}".format(wins,draws,losses,broken))

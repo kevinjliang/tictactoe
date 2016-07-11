@@ -63,6 +63,10 @@ class LeNetConvPoolLayer(object):
 
         # store parameters of this layer
         self.params = [self.W, self.b]
+        
+        # Conv net parameters
+        self.filter_shape = filter_shape
+        self.poolsize = poolsize
     
     def forward(self,input,image_shape):
         '''
@@ -187,7 +191,7 @@ class LogisticRegression:
     determine a class membership probability.
     """
 
-    def __init__(self, input, n_in, n_out):
+    def __init__(self, n_in, n_out):
         """ Initialize the parameters of the logistic regression
 
         :type input: theano.tensor.TensorType
