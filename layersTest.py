@@ -23,12 +23,7 @@ test_set_x, test_set_y = datasets[2]
 x = T.matrix('x')  # data, presented as rasterized images
 y = T.ivector('y')  # labels, presented as 1D vector of [int] labels
 
-classifier = layers.LogisticRegression(n_in=28 * 28, n_out=10)
-
-predict_y = theano.function(
-    inputs=[x],
-    outputs=classifier.forward(x)
-)
+classifier = layers.LogisticRegression(input=x,n_in=28 * 28, n_out=10)
 
 cost = classifier.negative_log_likelihood(y)
 
@@ -40,9 +35,22 @@ updates = [(classifier.W, classifier.W - learning_rate * g_W),
            (classifier.b, classifier.b - learning_rate * g_b)]
            
            
-y_predictions = predict_y(train_set_x.get_value())   
+y_predictions = classifier.forward(train_set_x.get_value())   
 
+train_model = theano.function(
+    inputs=[],
+    outputs=cost,
+    updates=updates,
+    givens={
+        x: train_set_x.get_value(),
+        y: train_set_y
+    }
+)
 
+for it in range(25):
+    iterCost = train_model()
+    
+    print(iterCost)
 
 
 
