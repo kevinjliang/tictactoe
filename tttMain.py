@@ -23,3 +23,5 @@ rng = np.random.RandomState(1337)
 
 deepAItest = tttTest.testDeepAI2()
 deepAItest.makeMove
+
+#tttTest.makeNet()

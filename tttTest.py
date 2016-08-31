@@ -10,6 +10,9 @@ import tictactoe as ttt
 import matplotlib.pyplot as plt
 import numpy as np
 
+import layers
+import theano.tensor as T
+
 ## Grid tests
 def testGameXwins():
     game = ttt.tttGrid()
@@ -415,9 +418,21 @@ class testDeepAI2:
 
 
 
-
-
-
-
-
+#def makeNet():
+#    x = T.tensor4('x')                  # images
+##    rng = np.random.RandomState(1337)
+#    batch_size = T.iscalar('batch_size')   
+#    
+##    nFilters = (20,50)
+#
+#    layer0_input = x.reshape((batch_size, 1, 125, 125))         
+#
+#    print(T.shape(layer0_input))
+##    layer0 = layers.LeNetConvPoolLayer(
+##        rng,
+##        input=layer0_input,
+##        image_shape=(batch_size, 1, layer0_input.shape[2], layer0_input.shape[3]),
+##        filter_shape=(nFilters[0], 1, 7, 7),
+##        poolsize=(2,2)
+##    )
 

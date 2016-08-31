@@ -512,19 +512,22 @@ class deepAI:
         rewards = (self.r_w, self.r_d, self.r_l, self.r_b)
         
         # Convolutional neural net used as function approximator
-        x = T.tensor4('x')                  # images
-        a = T.ivector('a')                  # actions
-        l = T.ivector('l')                  # labels (game outcome)
+        self.x = T.tensor4('x')                  # images
+        self.a = T.ivector('a')                  # actions
+        self.l = T.ivector('l')                  # labels (game outcome)
         rng = np.random.RandomState(1337)
-        batch_size = T.iscalar('batch_size')   
         
-        self.net = self.tttCNN(x, rng, batch_size)
+        # Network for training
+        self.trainNet = self.tttCNN(self.x, rng, 500)
         
-        # Symbolic expression of the cost (weighted by rewards)
-        self.cost = self.createCostFunction(x,a,l,rewards)
+        # Network for testing (playing games)
+        self.testNet = self.tttCNN(self.x, rng, 1)
+        
+        # Symbolic expression of the cost (weighted by rewards) as a function of the actions and outcomes
+        self.cost = self.createCostFunction(self.x,self.a,self.l,rewards)
         
         # Function to update parameters
-        self.backprop = self.createGradientFunction(x,a,l)
+        self.backprop = self.createGradientFunction(self.x,self.a,self.l)
         
         # Flag to have AI announce move; default to off
         self.announce = False
@@ -556,46 +559,64 @@ class deepAI:
             '''
             ## Network Architecture
             # Convolutional filters per layer
-            nFilters = (20,50)
+            nFilters = (15,30,30)
         
             # Construct the first convolutional pooling layer:            
             layer0_input = input.reshape((batch_size, 1, 125, 125))         
             
+            # Input to layer 0 is (125,125) image
+            # Filtering and then maxpooling results in output size of:
+            # ((125-8+1),(125-8+1)/2) = (59,59)
             self.layer0 = layers.LeNetConvPoolLayer(
                 rng,
                 input=layer0_input,
-                image_shape=(batch_size, 1, layer0_input.shape[2], layer0_input.shape[3]),
-                filter_shape=(nFilters[0], 1, 7, 7),
+                image_shape=(batch_size, 1, 125, 125),
+                filter_shape=(nFilters[0], 1, 8, 8),
                 poolsize=(2,2)
             )
             
             # Construct the second convolutional pooling layer
+            # Input to layer 1 is (59,59) image
+            # Filtering and then maxpooling results in output size of:
+            # ((59-8+1),(59-8+1)/2) = (26,26)
             self.layer1 = layers.LeNetConvPoolLayer(
                 rng,
                 input=self.layer0.output,
-                image_shape=(batch_size,nFilters[0],self.layer0.output.shape[2],self.layer0.output.shape[3]),
-                filter_shape=(nFilters[1], nFilters[0], 7, 7),
+                image_shape=(batch_size, nFilters[0], 59, 59),
+                filter_shape=(nFilters[1], nFilters[0], 8, 8),
+                poolsize=(2,2)
+            )
+            
+            # Construct the third convolutional pooling layer
+            # Input to layer 2 is (26,26) image
+            # Filtering and then maxpooling results in output size of:
+            # ((26-9+1),(26-9+1)/2) = (9,9)
+            self.layer2 = layers.LeNetConvPoolLayer(
+                rng,
+                input=self.layer1.output,
+                image_shape=(batch_size, nFilters[1], 26, 26),
+                filter_shape=(nFilters[2], nFilters[1], 9, 9),
                 poolsize=(2,2)
             )
             
             # Fully connected hidden layer
-            layer2_input = self.layer1.output.flatten(2)            
+            layer3_input = self.layer2.output.flatten(2)            
             
-            self.layer2 = layers.HiddenLayer(
+            self.layer3 = layers.HiddenLayer(
                 rng,
-                input=layer2_input,
-                n_in= layer2_input.shape(1),
+                input=layer3_input,
+                n_in=nFilters[1] * 26 * 26,
                 n_out=500,
                 activation=layers.relu
             )
 
             # Logistic regression with softmax
-            self.layer3 = layers.LogisticRegression(n_in=500, n_out=9)
+            self.layer4 = layers.LogisticRegression(input=self.layer3.output, n_in=500, n_out=9)
             
-            self.params = self.layer3.params + self.layer2.params + self.layer1.params + self.layer0.params
+            self.params = self.layer4.params + self.layer3.params + self.layer2.params + self.layer1.params + self.layer0.params
             
             # Perform forward pass on one image
-            self.forward = theano.function([input],self.layer3.y_pred,givens={batch_size: 1})
+            self.forward = theano.function([input],self.layer4.y_pred)
             
 #            # Cost 
 #            self.cost = layer3.negative_log_likelihood(y)
@@ -632,17 +653,24 @@ class deepAI:
         '''
         a_r = T.ivector('a_r')
         l_r = T.ivector('l_r')
+        
+        actions = T.ivector('actions')
+        outcomes = T.ivector('outcomes')        
+        
         costFunction = theano.function(
                             [l_r],
-                            self.net.layer3.negative_log_likelihood(a_r),
+                            self.trainNet.layer4.negative_log_likelihood(a_r),
                             givens={
-                                self.net.input: images[outcomes==l_r],
+                                self.x: images[outcomes==l_r],
                                 a_r: actions[outcomes==l_r] 
                             }
                         )
         
-        return rewards[0]*costFunction(1)+rewards[1]*costFunction(0)+rewards[2]*costFunction(-1)+rewards[3]*costFunction(-2)
-
+        totalCost = rewards[0]*costFunction(1)+rewards[1]*costFunction(0)+rewards[2]*costFunction(-1)+rewards[3]*costFunction(-2)
+        
+        return theano.function([actions,outcomes],totalCost)
+        
+        
     def createGradientFunction(self,images,actions,outcomes):
         '''
         Creates a symbolic expression (theano tensor) representing the gradient
@@ -652,7 +680,7 @@ class deepAI:
         outcomes:   the eventual outcome of the game (1,0,-1,-2) -> deep agent (won,drawn,loss,broke rule)
         actions:    the action that the deep agent took when presented with each frame in images
         '''
-        grads = T.grad(self.cost,self.net.params)
+        grads = T.grad(self.cost(actions,outcomes),self.net.params)
         
         updates = [
                 (param_i, param_i - self.alpha* grad_i)
@@ -661,7 +689,7 @@ class deepAI:
         
         backprop = theano.function(
             [images,actions,outcomes],
-            self.net.layer3.errors(actions),
+            self.net.layer4.errors(actions),
             updates=updates    
         )
         
