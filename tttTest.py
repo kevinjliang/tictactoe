@@ -289,10 +289,11 @@ class testOptAI:
         return True
         
         
+        
 ## Deep AI tests
 class testDeepAI:
     def __init__(self):
-        self.game = game = ttt.tttGrid()
+        self.game = ttt.tttGrid()
         self.deepAI = ttt.deepAI()
         self.aiX = ttt.optimalAI(game.X,game,.1)
         self.aiO = ttt.optimalAI(game.O,game,.1)        
@@ -392,3 +393,31 @@ class testDeepAI:
                 i = i + 1
                 
         print("Wins: {0} \nDraws: {1} \nLosses: {2} \nBroken: {3}".format(wins,draws,losses,broken))
+        
+        
+        
+class testDeepAI2:
+    def __init__(self):
+        self.game = ttt.tttGrid()
+        self.deepAI = ttt.deepAI()
+    
+    def makeMove(self):
+        tdeepAI = ttt.deepAI(epsilon=0)             # turn off exploration
+        tdeepAI.setAnnounce(True)
+        move = tdeepAI.ply(self.game)
+        return move
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
