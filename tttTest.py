@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import layers
+import theano
 import theano.tensor as T
 
 ## Grid tests
@@ -402,7 +403,7 @@ class testDeepAI:
 class testDeepAI2:
     def __init__(self):
         self.game = ttt.tttGrid()
-        self.deepAI = ttt.deepAI()
+#        self.deepAI = ttt.deepAI()
     
     def makeMove(self):
         tdeepAI = ttt.deepAI(epsilon=0)             # turn off exploration
@@ -410,29 +411,45 @@ class testDeepAI2:
         move = tdeepAI.ply(self.game)
         return move
         
+    def makeNet(self):
+        x = T.tensor4('x')                  # images
+    #    rng = np.random.RandomState(1337)
+        batch_size = T.iscalar('batch_size')   
+        
+    #    nFilters = (20,50)
+    
+        layer0_input = x.reshape((batch_size, 1, 125, 125))         
+    
+        print(T.shape(layer0_input))
+    #    layer0 = layers.LeNetConvPoolLayer(
+    #        rng,
+    #        input=layer0_input,
+    #        image_shape=(batch_size, 1, layer0_input.shape[2], layer0_input.shape[3]),
+    #        filter_shape=(nFilters[0], 1, 7, 7),
+    #        poolsize=(2,2)
+    #    )
 
-
-
-
-
-
-
-
-#def makeNet():
-#    x = T.tensor4('x')                  # images
-##    rng = np.random.RandomState(1337)
-#    batch_size = T.iscalar('batch_size')   
-#    
-##    nFilters = (20,50)
-#
-#    layer0_input = x.reshape((batch_size, 1, 125, 125))         
-#
-#    print(T.shape(layer0_input))
-##    layer0 = layers.LeNetConvPoolLayer(
-##        rng,
-##        input=layer0_input,
-##        image_shape=(batch_size, 1, layer0_input.shape[2], layer0_input.shape[3]),
-##        filter_shape=(nFilters[0], 1, 7, 7),
-##        poolsize=(2,2)
-##    )
-
+    def theanoLogicalIndexing(self):
+        x = T.tensor4('x')
+        l = T.ivector('l')
+        l_r = T.iscalar('l_r')
+        
+        Xval = np.random.randint(0,10,(5,1,3,3))
+        Lval = np.array([1,1,0,-1,-2])
+        L_r = 1
+        
+        z = x[T.eq(l,l_r).nonzero(),:,:,:][0]
+#        Z = Xval[Lval==1,:,:,:]
+#        print(Z)
+        
+        evalz = theano.function([x,l,l_r],z)
+        
+        print(Xval)
+        print("*********************")
+#        print(Lval)
+        zEval = evalz(Xval,Lval,L_r)
+        print(zEval)
+        print(zEval.shape)
+        
+        
+        

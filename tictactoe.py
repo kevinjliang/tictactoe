@@ -524,10 +524,10 @@ class deepAI:
         self.testNet = self.tttCNN(self.x, rng, 1)
         
         # Symbolic expression of the cost (weighted by rewards) as a function of the actions and outcomes
-        self.cost = self.createCostFunction(self.x,self.a,self.l,rewards)
+        self.cost = self.createCostExpression(self.x,self.a,self.l,rewards)
         
         # Function to update parameters
-        self.backprop = self.createGradientFunction(self.x,self.a,self.l)
+        self.backprop = self.createUpdateFunction(self.x,self.a,self.l)
         
         # Flag to have AI announce move; default to off
         self.announce = False
@@ -616,17 +616,7 @@ class deepAI:
             self.params = self.layer4.params + self.layer3.params + self.layer2.params + self.layer1.params + self.layer0.params
             
             # Perform forward pass on one image
-            self.forward = theano.function([input],self.layer4.y_pred)
-            
-#            # Cost 
-#            self.cost = layer3.negative_log_likelihood(y)
-            
-          
-#        def cost(self,images,actions):          
-#            # Cost function (last layer)
-#            layer3_out, move = self.forward(images,T.shape(images))
-#            return self.layer3.negative_log_likelihood(layer3_out,actions)
-        
+            self.forward = theano.function([input],self.layer4.y_pred)        
             
 
     def setIdentity(self,identity,opponentIdentity):
@@ -640,8 +630,8 @@ class deepAI:
         
     def setAnnounce(self,announceSetting):
         self.announce = announceSetting
-        
-    def createCostFunction(self,images,actions,outcomes,rewards):
+
+    def createCostExpression(self,images,actions,outcomes,rewards):
         '''
         Creates a symbolic expression (theano tensor) representing the total 
         cost, weighted by the outcome rewards
@@ -652,48 +642,67 @@ class deepAI:
         rewards:    reward function for each possible game outcome
         '''
         a_r = T.ivector('a_r')
-        l_r = T.ivector('l_r')
-        
-        actions = T.ivector('actions')
-        outcomes = T.ivector('outcomes')        
+        l_r = T.iscalar('l_r')
         
         costFunction = theano.function(
                             [l_r],
                             self.trainNet.layer4.negative_log_likelihood(a_r),
                             givens={
-                                self.x: images[outcomes==l_r],
-                                a_r: actions[outcomes==l_r] 
+                                self.x: images[T.eq(outcomes,l_r).nonzero(),:,:,:][0],
+                                a_r: actions[T.eq(outcomes,l_r).nonzero()]
                             }
                         )
         
         totalCost = rewards[0]*costFunction(1)+rewards[1]*costFunction(0)+rewards[2]*costFunction(-1)+rewards[3]*costFunction(-2)
         
-        return theano.function([actions,outcomes],totalCost)
-        
-        
-    def createGradientFunction(self,images,actions,outcomes):
-        '''
-        Creates a symbolic expression (theano tensor) representing the gradient
-        of the cost function with respect to the network parameters
-        
-        images:     volume of 125x125 images that the deep agent was presented with
-        outcomes:   the eventual outcome of the game (1,0,-1,-2) -> deep agent (won,drawn,loss,broke rule)
-        actions:    the action that the deep agent took when presented with each frame in images
-        '''
-        grads = T.grad(self.cost(actions,outcomes),self.net.params)
-        
+        return totalCost
+     
+    def createUpdateFunction(self,images,actions,outcomes):
+        grads = T.grad(self.cost,self.trainNet.params)
+         
         updates = [
                 (param_i, param_i - self.alpha* grad_i)
-                for param_i, grad_i in zip(self.net.params, grads)
-        ]
-        
+                for param_i, grad_i in zip(self.trainNet.params, grads)
+         ]
+         
         backprop = theano.function(
             [images,actions,outcomes],
-            self.net.layer4.errors(actions),
+            self.cost,
             updates=updates    
         )
         
         return backprop
+    
+    def updateNetParams(self,images,actions,outcomes):
+        iterationCost = self.backprop(images,actions,outcomes)
+        print(iterationCost)
+        
+        self.testNet.params = self.trainNet.params
+        
+#    def createGradientFunction(self,images,actions,outcomes):
+#        '''
+#        Creates a symbolic expression (theano tensor) representing the gradient
+#        of the cost function with respect to the network parameters
+#        
+#        images:     volume of 125x125 images that the deep agent was presented with
+#        outcomes:   the eventual outcome of the game (1,0,-1,-2) -> deep agent (won,drawn,loss,broke rule)
+#        actions:    the action that the deep agent took when presented with each frame in images
+#        '''
+#        
+#        grads = T.grad(self.cost(actions,outcomes),self.net.params)
+#        
+#        updates = [
+#                (param_i, param_i - self.alpha* grad_i)
+#                for param_i, grad_i in zip(self.net.params, grads)
+#        ]
+#        
+#        backprop = theano.function(
+#            [images,actions,outcomes],
+#            self.net.layer4.errors(actions),
+#            updates=updates    
+#        )
+#        
+#        return backprop
     
     def loadDeepNet(self,filename):
         '''
@@ -716,7 +725,7 @@ class deepAI:
         image = tttGrid.getImage()
         if np.random.uniform()>self.epsilon:
             # Exploitation: Pick move based on net
-            move = self.net.forward(image.reshape(1,1,image.shape[0],image.shape[1]))
+            move = self.testNet.forward(image.reshape(1,1,image.shape[0],image.shape[1]))
             
             if self.announce:
                 print("***Deep Agent is exploiting with move {0}".format(move))
@@ -735,81 +744,7 @@ class deepAI:
             
             
             
-#    def updateNetParams2(self,images,outcomes,actions):
-#        '''
-#        Update parameters with backpropagation
-#        
-#        Individually find the (4) gradients that encourage actions that led
-#        to games that were won (w), drawn (d), lost (l), and ended because 
-#        of a broken rule (b). Weight gradients by their respective rewards
-#        
-#        images:     volume of 125x125 images that the deep agent was presented with
-#        outcomes:   the eventual outcome of the game (1,0,-1,-2) -> deep agent (won,drawn,loss,broke rule)
-#        actions:    the action that the deep agent took when presented with each frame in images
-#        '''
-#        images_w = images[:,:,outcomes==1]
-#        images_d = images[:,:,outcomes==0]
-#        images_l = images[:,:,outcomes==-1]
-#        images_b = images[:,:,outcomes==-2]
-#        
-#        actions_w = actions[outcomes==1]
-#        actions_d = actions[outcomes==0]
-#        actions_l = actions[outcomes==-1]
-#        actions_b = actions[outcomes==-2]
-#        
-#        params = self.net.layer3.params + self.net.layer2.params + self.net.layer1.params + self.net.layer0.params        
-#        
-#        x_w = T.matrix('x_w')   # the data is presented as rasterized images
-#        x_d = T.matrix('x_d')
-#        x_l = T.matrix('x_l')
-#        x_b = T.matrix('x_b')
-#        y_w = T.ivector('y_w')  # the labels are presented as 1D vector of
-#        y_d = T.ivector('y_d')  # [int] labels
-#        y_l = T.ivector('y_l')  
-#        y_b = T.ivector('y_b')  
-#        
-#        cost = self.net.cost(x_w,y_w)*self.r_w + self.net.cost(x_d,y_d)*self.r_d + self.net.cost(x_l,y_l)*self.r_l + self.net.cost(x_b,y_b)*self.r_b 
-#        grads = T.grad(cost,params)        
-#        
-##        grad_w = self.gradient(images_w,actions_w,params)
-##        grad_d = self.gradient(images_d,actions_d,params)
-##        grad_l = self.gradient(images_l,actions_l,params)
-##        grad_b = self.gradient(images_b,actions_b,params)
-##        
-##        grad = grad_w*self.r_w + grad_d*self.r_d + grad_l*self.r_l + grad_b*self.r_b
-#                
-#        updates = [
-#            (param_i, param_i - self.alpha * grad_i)
-#            for param_i, grad_i in zip(params, grads)
-#            ]
-#            
-#        train_model = theano.function(
-#            [],
-#            cost,
-#            updates=updates,
-#            givens={
-#                x_w: images_w,
-#                y_w: actions_w,
-#                x_d: images_d,
-#                y_d: actions_d,
-#                x_l: images_l,
-#                y_l: actions_l,
-#                x_b: images_b,
-#                y_b: actions_b}
-#        )
-#        
-#        
-#        cost = train_model()     
-#        
 
-#    def gradient(self,images,actions,params):
-#        '''
-#        Find gradient that nudges parameters in direction encouraging the
-#        '''       
-#        # the cost we minimize during training is the NLL of the model
-#        cost = self.net.cost(images,actions)
-#        
-#        return T.grad(cost, params)
 
 class DeepRL_PolicyGradient:
     '''

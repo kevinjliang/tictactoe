@@ -22,6 +22,7 @@ rng = np.random.RandomState(1337)
 #deepAItest.playNGames(1)
 
 deepAItest = tttTest.testDeepAI2()
-deepAItest.makeMove
+deepAItest.makeMove()
+#deepAItest.theanoLogicalIndexing()
 
 #tttTest.makeNet()
