@@ -18,9 +18,11 @@ rng = np.random.RandomState(1337)
 #optAItest.testAll()
 #optAItest.simulate2OptAIs()
 
-#deepAItest = tttTest.testDeepAI()
-#deepAItest.playNGames(1)
+deepAItest = tttTest.testDeepAI()
+deepAItest.playNMoves(500)
 
-deepAItest = tttTest.testDeepAI2()
-deepAItest.performOneBatchUpdate()
-deepAItest.makeMove()
+#deepAItest = tttTest.testDeepAI2()
+#deepAItest.performOneBatchUpdate()
+#deepAItest.makeMove()
+
+

@@ -39,7 +39,7 @@ class tttGrid:
         Initialize an empty playing grid
         '''
         self.grid = np.zeros((self.GRIDSIZE, self.GRIDSIZE))
-        self.image = np.zeros((125,125))
+        self.image = np.zeros((125,125),dtype=np.int32)
         
         # Draw in tic-tac-toe board
         self.image[39:43,:] = 1
@@ -99,9 +99,9 @@ class tttGrid:
         Adds an X/O symbol at the proper location of the image of the grid
         '''
         if player==self.X:
-            self.image = self.image + self.Xs[:,:,position-1]
+            self.image = self.image + np.squeeze(self.Xs[:,:,position-1])
         elif player==self.O:
-            self.image = self.image + self.Os[:,:,position-1]
+            self.image = self.image + np.squeeze(self.Os[:,:,position-1])
     
     def updateWinCheck(self,player,row,col):
         '''
@@ -528,6 +528,8 @@ class deepAI:
         # Define loss function,gradients,and update method for training
         self.loss,self.gradients,self.updateParams = self.createGradientFunctions(rewards)
         
+        # Flag to have AI announce rule being followed; default to off
+        self.announce = False
         
         
 #        self.x = T.tensor4('x')                  # images
@@ -785,7 +787,8 @@ class deepAI:
             
             if self.announce:
                 print("***Deep Agent is exploring with move {0}".format(move))
-            return move
+        
+        return move
             
 
             
