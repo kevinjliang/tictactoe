@@ -9,6 +9,8 @@ Created on Wed Jun 29 10:19:07 2016
 import tictactoe as ttt
 import matplotlib.pyplot as plt
 import numpy as np
+import os
+import pickle
 
 import layers
 import theano
@@ -411,6 +413,108 @@ class testDeepAI2:
         move = tdeepAI.ply(self.game)
         return move
         
+    def performOneBatchUpdate(self):
+        # For simplicity generate images to test on with two optimal AI  
+        print("Creating AIs")
+        aiX = ttt.optimalAI(self.game.X,self.game,difficulty=.5)
+        aiO = ttt.optimalAI(self.game.O,self.game,difficulty=.7)  
+        
+        # Train on 100 images 
+        batch_size = 500 
+        
+        # Generate images if not already generated
+        if os.path.isfile('Data/batchData.p'):
+            print("Data found. Unpickling")            
+            
+            f = open('Data/batchData.p','rb')
+            images,actions,labels = pickle.load(f)
+            f.close()
+        else:
+            print("Data not found. Generating...")
+            images,actions,labels = self.generateImages(aiX,aiO,batch_size) 
+            
+            f = open('Data/batchData.p','wb')
+            pickle.dump([images,actions,labels],f)
+            f.close()
+        
+        print('Creating Deep AI')
+        tdeepAI = ttt.deepAI() 
+        print('Training one batch')
+        loss = tdeepAI.trainModel(images,actions-1,labels)
+        print(loss)
+        
+        print('Finished')
+        
+    def generateImages(self,aiX,aiO,batch_size):
+        images = np.zeros((batch_size,1,125,125),dtype=np.int32)
+        actions = np.zeros(batch_size,dtype=np.int32)
+        labels = np.zeros(batch_size,dtype=np.int32)
+        
+        i = 0
+        
+        while(True):
+            # X goes first
+            playerToGo = aiX
+            
+            # No winner yet
+            self.game.newGame()            
+            winner = 0
+            gameStart = i
+            
+            # Go until someone wins
+            while(winner==0):
+                # Save image before move was made
+                images[i,0,:,:] = self.game.getImage()
+                
+                # Have player make move
+                move = playerToGo.ply(self.game)
+                actions[i] = move
+                winner = self.game.move(playerToGo.identity,move)          
+                
+                # If gameover
+                if winner==self.game.X:          # X won
+                    if playerToGo.identity!=self.game.X:
+                        # Make sure something weird didn't just happen
+                        # TODO: Turn into exception
+                        print("Someone won, and it wasn't the player that just went...")
+                        return
+                    
+                    if playerToGo.identity==self.game.X:
+                        labels[gameStart:(i+1)] = 0
+                    else:
+                        labels[gameStart:(i+1)] = 2
+                elif winner==self.game.O:        # O won
+                    if playerToGo.identity!=self.game.O:
+                        # Make sure something weird didn't just happen
+                        # TODO: Turn into exception
+                        print("Someone won, and it wasn't the player that just went...")
+                        return
+                    
+                    if playerToGo.identity==self.game.O:
+                        labels[gameStart:(i+1)] = 0
+                    else:
+                        labels[gameStart:(i+1)] = 2
+                elif winner==self.game.DRAW:     # Game ended in draw
+                    labels[gameStart:(i+1)] = 1
+                elif winner==-1:            # Someone messed up (rule broken)
+                    labels[gameStart:(i+1)] = 3
+                    
+                # The other player's turn to go next
+                if playerToGo.identity == aiX.identity:
+                    
+                    playerToGo = aiO
+                else:
+                    playerToGo = aiX        
+
+                # Increment batch counter
+                i = i + 1   
+                if i==batch_size:
+                    return images,actions,labels
+            
+            print(winner)
+            
+        
+        
     def makeNet(self):
         x = T.tensor4('x')                  # images
     #    rng = np.random.RandomState(1337)
@@ -450,6 +554,17 @@ class testDeepAI2:
         zEval = evalz(Xval,Lval,L_r)
         print(zEval)
         print(zEval.shape)
+    
+    def theanoTensorIndexing(self):
+        r = T.vector('r')        
+
+        rewards = np.array([1,-0.05,-1,-5])
         
+        l = T.ivector('l')
         
+        Lval = np.array([1,1,2,3,0,2,0,1,3])
         
+        z = r[l]
+        evalz = theano.function([l],z,givens={r:rewards})
+        
+        print(evalz(Lval))
