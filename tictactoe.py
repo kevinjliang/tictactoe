@@ -494,7 +494,7 @@ class optimalAI:
 ## Takes in 125x125 image of tttGrid as input
 
 class deepAI:
-    def __init__(self,alpha=1e-3,gamma=0.95,epsilon=0.03):       
+    def __init__(self,alpha=1e-2,gamma=0.9,epsilon=0.05):       
         self.identity = []
         
         # Hyperparameters
@@ -515,6 +515,7 @@ class deepAI:
         self.x = T.tensor4('x')                  # images
         self.a = T.ivector('a')                  # actions
         self.l = T.ivector('l')                  # labels (game outcome)
+        self.d = T.ivector('d')                  # duration (for discount factor)
         rng = np.random.RandomState(1337)
         
         # Convolutional neural net used as function approximator
@@ -622,7 +623,7 @@ class deepAI:
     def createGradientFunctions(self,rewards):
         r_vector = T.vector("r_vector")
         
-        loss = -T.mean(self.trainNet.layer4.p_y_given_x[T.arange(self.N),self.a] * r_vector[self.l])
+        loss = -T.mean(self.trainNet.layer4.p_y_given_x[T.arange(self.N),self.a] * r_vector[self.l] * T.pow(self.gamma,self.d))
         gradients = T.grad(loss,self.trainNet.params)
 
         updates = [
@@ -632,7 +633,7 @@ class deepAI:
          
         givens = {r_vector: rewards}
 
-        updateParams = theano.function([self.x,self.a,self.l],loss,updates=updates,givens=givens)
+        updateParams = theano.function([self.x,self.a,self.l,self.d],loss,updates=updates,givens=givens)
         return loss,gradients,updateParams
 
         
@@ -707,7 +708,7 @@ class trainDeepAI:
         recIndex = 0
         
         while(movesElapsed<moveLimit):
-            images,actions,outcomes,record = self.playNMoves(updateRate)
+            images,actions,outcomes,duration,record = self.playNMoves(updateRate)
             allRecords[:,recIndex] = record
             recIndex = recIndex + 1
             print("Wins: {0} \nDraws: {1} \nLosses: {2} \nBroken: {3}".format(record[0],record[1],record[2],record[3]))
@@ -723,9 +724,12 @@ class trainDeepAI:
         print(allRecords)
 
     def playNMoves(self,N):
-        images = np.zeros((N,1,125,125),dtype=np.int32)
+        images = np.zeros((N,1,64,64),dtype=np.int32)
         actions = np.zeros(N,dtype=np.int32)
         outcomes = np.zeros(N,dtype=np.int32)
+        duration = np.zeros(N,dtype=np.int32)
+        
+        aiMove = np.zeros(N)
 
         wins = 0
         draws = 0
@@ -755,7 +759,10 @@ class trainDeepAI:
                 # Have player make move
                 move = playerToGo.ply(self.game)
                 actions[i] = move
+                if playerToGo.identity==self.deepAI.identity:
+                    aiMove[i] = 1
                 winner = self.game.move(playerToGo.identity,move)
+                
                 
                 # If gameover
                 if winner==self.game.X:          # X won                   
@@ -765,6 +772,7 @@ class trainDeepAI:
                     else:
                         outcomes[gameStart:(i+1)] = 2
                         losses = losses+1
+                    duration[gameStart:(i+1)] = i-gameStart
                 elif winner==self.game.O:        # O won
                     if self.deepAI.identity==self.game.O:
                         outcomes[gameStart:(i+1)] = 0
@@ -772,11 +780,14 @@ class trainDeepAI:
                     else:
                         outcomes[gameStart:(i+1)] = 2
                         losses = losses+1
+                    duration[gameStart:(i+1)] = i-gameStart
                 elif winner==self.game.DRAW:     # Game ended in draw
                     outcomes[gameStart:(i+1)] = 1
+                    duration[gameStart:(i+1)] = i-gameStart
                     draws = draws+1
                 elif winner==-1:            # Someone messed up (rule broken)
                     outcomes[gameStart:(i+1)] = 3
+                    duration[gameStart:(i+1)] = i-gameStart
                     broken = broken+1
                     
                 # Increment batch counter
@@ -788,8 +799,12 @@ class trainDeepAI:
                 
                 if i==N:
 #                    print("Wins: {0} \nDraws: {1} \nLosses: {2} \nBroken: {3}".format(wins,draws,losses,broken))
-                    record = [wins,draws,losses,broken]                   
-                    return images,actions,outcomes,record
+                    record = [wins,draws,losses,broken]  
+                    
+                    pickle.dump([images,actions,outcomes,duration,record,aiMove],open('stack.p','wb'))
+                                        
+                    
+                    return images,actions,outcomes,duration,record
                 
                 # The other player's turn to go next
                 if playerToGo.identity == playerX.identity:

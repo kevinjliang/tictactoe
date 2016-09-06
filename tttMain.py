@@ -17,4 +17,4 @@ rng = np.random.RandomState(1337)
 
 
 trainer = ttt.trainDeepAI()
-trainer.train(moveLimit=100000)
+trainer.train(moveLimit=1000)
