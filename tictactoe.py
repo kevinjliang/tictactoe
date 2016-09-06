@@ -27,8 +27,8 @@ class tttGrid:
     DRAW = 42
     
     # X/O shapes in all 9 locations, for the image
-    Xs = np.zeros((125,125,9))
-    Os = np.zeros((125,125,9))
+    Xs = np.zeros((64,64,9))
+    Os = np.zeros((64,64,9))
     
     # Diagonals
     DIAG1 = [(0, 0), (1, 1), (2, 2)]
@@ -39,18 +39,18 @@ class tttGrid:
         Initialize an empty playing grid
         '''
         self.grid = np.zeros((self.GRIDSIZE, self.GRIDSIZE))
-        self.image = np.zeros((125,125),dtype=np.int32)
+        self.image = np.zeros((64,64),dtype=np.int32)
         
         # Draw in tic-tac-toe board
-        self.image[39:43,:] = 1
-        self.image[82:86,:] = 1
-        self.image[:,39:43] = 1
-        self.image[:,82:86] = 1
+        self.image[20:22,:] = 1
+        self.image[42:44,:] = 1
+        self.image[:,20:22] = 1
+        self.image[:,42:44] = 1
         
         # Load the images of all X/O shapes in all 9 locations
         for i in range(1,10):
-            self.Xs[:,:,i-1] = eval('np.loadtxt(\'Data\X{0}.txt\'.format(i))')
-            self.Os[:,:,i-1] = eval('np.loadtxt(\'Data\O{0}.txt\'.format(i))')
+            self.Xs[:,:,i-1] = eval('np.loadtxt(\'Data/X{0}.txt\'.format(i))')
+            self.Os[:,:,i-1] = eval('np.loadtxt(\'Data/O{0}.txt\'.format(i))')
         
         # Win conditions
         self.rowWin = np.zeros(3)
@@ -156,13 +156,13 @@ class tttGrid:
         Go back to an empty playing grid
         '''
         self.grid = np.zeros((self.GRIDSIZE, self.GRIDSIZE))
-        self.image = np.zeros((125,125))
+        self.image = np.zeros((64,64))
         
         # Draw in tic-tac-toe board
-        self.image[39:43,:] = 1
-        self.image[82:86,:] = 1
-        self.image[:,39:43] = 1
-        self.image[:,82:86] = 1
+        self.image[20:22,:] = 1
+        self.image[42:44,:] = 1
+        self.image[:,20:22] = 1
+        self.image[:,42:44] = 1
         
         # Reset win conditions
         self.rowWin = np.zeros(3)
@@ -494,7 +494,7 @@ class optimalAI:
 ## Takes in 125x125 image of tttGrid as input
 
 class deepAI:
-    def __init__(self,alpha=1e-4,gamma=0.95,epsilon=0.02):       
+    def __init__(self,alpha=1e-3,gamma=0.95,epsilon=0.03):       
         self.identity = []
         
         # Hyperparameters
@@ -508,7 +508,7 @@ class deepAI:
         self.r_w = 1                             # win
         self.r_d = -0.05                         # draw
         self.r_l = -1                            # loss
-        self.r_b = -5                            # broken rule
+        self.r_b = -10                           # broken rule
         
         rewards = np.array([self.r_w, self.r_d, self.r_l, self.r_b])
         
@@ -556,45 +556,35 @@ class deepAI:
 #            :param: rewards for (W)in, (D)raw, (L)oss, or (B)roken rule
             '''
             ## Network Architecture
-            # Convolutional filters per layer
-            nFilters = (15,30,30)
-        
-            # Construct the first convolutional pooling layer:            
-            layer0_input = input.reshape((batch_size, 1, 125, 125))         
             
-            # Input to layer 0 is (125,125) image
-            # Filtering and then maxpooling results in output size of:
-            # ((125-8+1),(125-8+1)/2) = (59,59)
-            self.layer0 = layers.LeNetConvPoolLayer(
+            # Reshape input:            
+            layer0_input = input.reshape((batch_size, 1, 64, 64))         
+            
+            # Layer 0: Convolutional group (2 cnn layers)
+            self.layer0 = layers.convGroup(
                 rng,
                 input=layer0_input,
-                image_shape=(batch_size, 1, 125, 125),
-                filter_shape=(nFilters[0], 1, 8, 8),
-                poolsize=(2,2)
+                image_shape=(batch_size, 1, 64, 64),
+                filter_shapes=((16,1,3,3),(32,16,3,3)),
+                finalpoolsize=(2,2)            
             )
             
-            # Construct the second convolutional pooling layer
-            # Input to layer 1 is (59,59) image
-            # Filtering and then maxpooling results in output size of:
-            # ((59-8+1),(59-8+1)/2) = (26,26)
-            self.layer1 = layers.LeNetConvPoolLayer(
+            # Layer 1: Convolutional group (2 cnn layers)
+            self.layer1 = layers.convGroup(
                 rng,
                 input=self.layer0.output,
-                image_shape=(batch_size, nFilters[0], 59, 59),
-                filter_shape=(nFilters[1], nFilters[0], 8, 8),
-                poolsize=(2,2)
+                image_shape=(batch_size, 32, 32, 32),
+                filter_shapes=((32,32,3,3),(32,32,3,3)),
+                finalpoolsize=(2,2)            
             )
             
-            # Construct the third convolutional pooling layer
-            # Input to layer 2 is (26,26) image
-            # Filtering and then maxpooling results in output size of:
-            # ((26-9+1),(26-9+1)/2) = (9,9)
-            self.layer2 = layers.LeNetConvPoolLayer(
+            # Layer 2: Convolutional group (2 cnn layers)
+            self.layer2 = layers.convGroup(
                 rng,
                 input=self.layer1.output,
-                image_shape=(batch_size, nFilters[1], 26, 26),
-                filter_shape=(nFilters[2], nFilters[1], 9, 9),
-                poolsize=(2,2)
+                image_shape=(batch_size, 32, 16, 16),
+                filter_shapes=((32,32,3,3),(32,32,3,3)),
+                finalpoolsize=(2,2)            
             )
             
             # Fully connected hidden layer
@@ -603,13 +593,13 @@ class deepAI:
             self.layer3 = layers.HiddenLayer(
                 rng,
                 input=layer3_input,
-                n_in=nFilters[1] * 9*9,
-                n_out=500,
+                n_in=32 * 8*8,
+                n_out=250,
                 activation=layers.relu
             )
 
             # Logistic regression with softmax
-            self.layer4 = layers.LogisticRegression(input=self.layer3.output, n_in=500, n_out=9)
+            self.layer4 = layers.LogisticRegression(input=self.layer3.output, n_in=250, n_out=9)
             
             self.params = self.layer4.params + self.layer3.params + self.layer2.params + self.layer1.params + self.layer0.params
             
@@ -694,10 +684,9 @@ class deepAI:
             
             
             
-            
-            
-
-
+###############################################################################
+## Train Protocol
+###############################################################################             
 class trainDeepAI:
     '''
     Trains a class "deepAI" agent to play tic-tac-toe on tttGrid by playing
@@ -719,7 +708,7 @@ class trainDeepAI:
         
         while(movesElapsed<moveLimit):
             images,actions,outcomes,record = self.playNMoves(updateRate)
-            allRecords[:,recIndex]
+            allRecords[:,recIndex] = record
             recIndex = recIndex + 1
             print("Wins: {0} \nDraws: {1} \nLosses: {2} \nBroken: {3}".format(record[0],record[1],record[2],record[3]))
             
@@ -824,100 +813,7 @@ class trainDeepAI:
             
         return playerX,playerO
     
-    
-#    def train(self,totalGames,updateRate=500,saveRate=500):
-#        # Set up a tictactoe grid/game
-#        game = tttGrid()
-#        
-#        # Initialize an opponent who plays X and an opponent who plays O
-#        OpponentAs_X = optimalAI(game.X,game,difficulty=0.7)
-#        OpponentAs_O = optimalAI(game.O,game,difficulty=0.7)
-#        
-#        # Pre-allocate space for maximum number of moves (each an image frame) over games within an update batch
-#        # The maximum possible number of images/moves occurs when the player is X and every game ends in a tie (5 moves)         
-#        gameImages = np.empty((game.image.shape[0],game.image.shape[1],5*updateRate))*np.nan
-#        # Actions taken after each image in gameImages was presented
-#        gameActions = np.empty(5*updateRate)*np.nan
-#        # Indicate the eventual winner of each frame
-#        # (1,0,-1) for player's (win,tie,loss); -2 if rule broken
-#        gameOutcomes = np.empty(5*updateRate)*np.nan
-#
-#        
-#        # Iterator within each batch for indexing into gameImages, gameActions, gameOutcomes
-#        i = 0     
-#        
-#        for n in range(totalGames):
-#            # Wipe the board for a new game
-#            game.newGame()
-#            
-#            # Randomly assign player and opponent identities
-#            playerIdentity = np.random.choice([game.X,game.O])
-#            if playerIdentity == game.X:
-#                self.player.setIdentity(game.X,game.O)
-#                playerX = self.player
-#                playerO = OpponentAs_O
-#            else:
-#                self.player.setIdentity(game.O,game.X)
-#                playerO = self.player
-#                playerX = OpponentAs_X
-#            
-#            winner = 0
-#            gameStart = i
-#            playerToGo = playerX
-#            
-#            # Play a game to completion
-#            while winner==0:
-#                # Save image before move was made
-#                gameImages[:,:,i] = game.getImage()
-#                
-#                # Have player make move
-#                move = playerToGo.ply(game)
-#                gameActions[i] = move
-#                winner = game.move(playerToGo.identity,move)
-#                
-#                # If gameover
-#                if winner==game.X:          # X won
-#                    if playerToGo.identity!=game.X:
-#                        # Make sure something weird didn't just happen
-#                        # TODO: Turn into exception
-#                        print("Someone won, and it wasn't the player that just went...")
-#                        return
-#                    
-#                    if self.player.identity==game.X:
-#                        gameOutcomes[gameStart:(i+1)] = 1
-#                    else:
-#                        gameOutcomes[gameStart:(i+1)] = -1
-#                elif winner==game.O:        # O won
-#                    if playerToGo.identity!=game.O:
-#                        # Make sure something weird didn't just happen
-#                        # TODO: Turn into exception
-#                        print("Someone won, and it wasn't the player that just went...")
-#                        return
-#                    
-#                    if self.player.identity==game.O:
-#                        gameOutcomes[gameStart:(i+1)] = 1
-#                    else:
-#                        gameOutcomes[gameStart:(i+1)] = -1
-#                elif winner==game.DRAW:     # Game ended in draw
-#                    gameOutcomes[gameStart:(i+1)] = 0
-#                elif winner==-1:            # Someone messed up (rule broken)
-#                    gameOutcomes[gameStart:(i+1)] = -2
-#                    
-#                # The other player's turn to go next
-#                if playerToGo.identity == playerX.identity:
-#                    playerToGo = playerO
-#                else:
-#                    playerToGo = playerX        
-#                
-#                # Increment batch counter
-#                i = i + 1
-#            
-#            # Perform update on deep net parameters every "updateRate" number of games                
-#            if n % updateRate == (updateRate-1):
-#                imageBatch = gameImages[~np.isnan(gameImages)]
-#                outcomeBatch = gameOutcomes[~np.isnan(gameOutcomes)]
-#                actionBatch = gameActions[~np.isnan(gameActions)]
-                
+ 
 
 ###############################################################################
 ## Miscellaneous helper functions

@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 
 rng = np.random.RandomState(1337)
 
+#tttTest.testGameXwins()
 
 #deepAItest = tttTest.testDeepAI()
 #deepAItest.playNMoves(500)
@@ -17,4 +18,3 @@ rng = np.random.RandomState(1337)
 
 trainer = ttt.trainDeepAI()
 trainer.train(moveLimit=100000)
-

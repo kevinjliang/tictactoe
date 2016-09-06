@@ -271,12 +271,13 @@ class LeNetConvPoolLayer(object):
             input=input,
             filters=self.W,
             filter_shape=filter_shape,
-            input_shape=image_shape
+            input_shape=image_shape,
+            border_mode='full'
         )
 
         # pool each feature map individually, using maxpooling
         pooled_out = pool.pool_2d(
-            input=conv_out,
+            input=conv_out[:,:,1:-1,1:-1],
             ds=poolsize,
             ignore_border=True
         )
@@ -295,6 +296,34 @@ class LeNetConvPoolLayer(object):
         # keep track of model input
         self.input = input
 
+class convGroup(object):
+    """Group of convolutional layers with a max pool at the end"""
+    
+    def __init__(self,rng,input,image_shape,filter_shapes,finalpoolsize=(2,2)):  
+        
+        self.sublayer0 = LeNetConvPoolLayer(
+            rng,
+            input=input,
+            image_shape=image_shape,
+            filter_shape=filter_shapes[0],
+            poolsize=(1,1)
+        )
+        
+        # Adjust layer 0's input shape to account for multiple layer 0 filters
+        image_shape1 = (image_shape[0],filter_shapes[0][0],image_shape[2],image_shape[3])     
+        
+        self.sublayer1 = LeNetConvPoolLayer(
+            rng,
+            input=self.sublayer0.output,
+            image_shape=image_shape1,
+            filter_shape=filter_shapes[1],
+            poolsize=finalpoolsize
+        )
+        
+        self.params = self.sublayer0.params + self.sublayer1.params
+        
+        self.output = self.sublayer1.output
+        
 
 def relu(x):
     return T.switch(x<0,0,x)

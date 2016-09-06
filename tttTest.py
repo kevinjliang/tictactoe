@@ -313,7 +313,7 @@ class testDeepAI:
         
     
     def playNMoves(self,N):
-        images = np.zeros((N,1,125,125),dtype=np.int32)
+        images = np.zeros((N,1,64,64),dtype=np.int32)
         actions = np.zeros(N,dtype=np.int32)
         labels = np.zeros(N,dtype=np.int32)
 
@@ -446,7 +446,7 @@ class testDeepAI:
         print('Finished')
         
     def generateImages(self,aiX,aiO,batch_size):
-        images = np.zeros((batch_size,1,125,125),dtype=np.int32)
+        images = np.zeros((batch_size,1,64,64),dtype=np.int32)
         actions = np.zeros(batch_size,dtype=np.int32)
         labels = np.zeros(batch_size,dtype=np.int32)
         
@@ -522,7 +522,7 @@ class testDeepAI:
         
     #    nFilters = (20,50)
     
-        layer0_input = x.reshape((batch_size, 1, 125, 125))         
+        layer0_input = x.reshape((batch_size, 1, 64, 64))         
     
         print(T.shape(layer0_input))
     #    layer0 = layers.LeNetConvPoolLayer(
