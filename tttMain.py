@@ -10,19 +10,11 @@ import matplotlib.pyplot as plt
 
 rng = np.random.RandomState(1337)
 
-#tttTest.testGameXwins()
-#
-#tttTest.testGameOwins()
 
-#optAItest = tttTest.testOptAI()
-#optAItest.testAll()
-#optAItest.simulate2OptAIs()
+#deepAItest = tttTest.testDeepAI()
+#deepAItest.playNMoves(500)
 
-deepAItest = tttTest.testDeepAI()
-deepAItest.playNMoves(500)
 
-#deepAItest = tttTest.testDeepAI2()
-#deepAItest.performOneBatchUpdate()
-#deepAItest.makeMove()
-
+trainer = ttt.trainDeepAI()
+trainer.train(moveLimit=100000)
 

@@ -331,13 +331,13 @@ class testDeepAI:
             # Randomly assign player and opponent identities
             playerIdentity = np.random.choice([self.game.X,self.game.O])
             if playerIdentity == self.game.X:
-                self.deepAI.setIdentity(self.game.X,self.game.O)
+                self.deepAI.setIdentity(self.game.X)
                 playerX = self.deepAI
                 playerO = self.aiO
                 
 #                print("DeepAI is {0}".format(self.game.X))
             else:
-                self.deepAI.setIdentity(self.game.O,self.game.X)
+                self.deepAI.setIdentity(self.game.O)
                 playerO = self.deepAI
                 playerX = self.aiX
                 
@@ -392,29 +392,20 @@ class testDeepAI:
                 elif winner==-1:            # Someone messed up (rule broken)
                     labels[gameStart:(i+1)] = 3
                     broken = broken+1
-                    
-                # The other player's turn to go next
-                if playerToGo.identity == playerX.identity:
-                    playerToGo = playerO
-                else:
-                    playerToGo = playerX        
 
-        
                 # Increment batch counter
+                print("{0}: Move {1} made by {2}, resulting in {3}".format(i,actions[i],playerToGo.identity,labels[i]))
                 i = i + 1
                 
                 if i==N:
                     print("Wins: {0} \nDraws: {1} \nLosses: {2} \nBroken: {3}".format(wins,draws,losses,broken))
                     return images,actions,labels
                 
-        
-        
-        
-        
-class testDeepAI2:
-    def __init__(self):
-        self.game = ttt.tttGrid()
-#        self.deepAI = ttt.deepAI()
+                # The other player's turn to go next
+                if playerToGo.identity == playerX.identity:
+                    playerToGo = playerO
+                else:
+                    playerToGo = playerX   
     
     def makeMove(self):
         tdeepAI = ttt.deepAI(epsilon=0)             # turn off exploration

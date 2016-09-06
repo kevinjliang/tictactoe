@@ -496,7 +496,6 @@ class optimalAI:
 class deepAI:
     def __init__(self,alpha=1e-4,gamma=0.95,epsilon=0.02):       
         self.identity = []
-        self.opponent = []
         
         # Hyperparameters
         self.alpha = alpha                       # Learning rate
@@ -530,30 +529,6 @@ class deepAI:
         
         # Flag to have AI announce rule being followed; default to off
         self.announce = False
-        
-        
-#        self.x = T.tensor4('x')                  # images
-#        self.a = T.ivector('a')                  # actions
-#        
-#        self.l = T.ivector('l')                  # labels (game outcome)
-##        self.x_r = T.tensor4('x_r')              # images corresponding to label r
-##        self.a_r = T.ivector('a_r')              # actions corresponding to label r
-#        rng = np.random.RandomState(1337)
-#        
-#        # Network for training
-#        self.trainNet = self.tttCNN(self.x, rng, 500)
-#        
-#        # Network for testing (playing games)
-#        self.testNet = self.tttCNN(self.x, rng, 1)
-#        
-#        # Symbolic expression of the cost (weighted by rewards) as a function of the actions and outcomes
-#        self.cost = self.createCostExpression(self.x,self.a,self.l,rewards)
-#        
-#        # Function to update parameters
-#        self.backprop = self.createUpdateFunction(self.x,self.a,self.l)
-#        
-#        # Flag to have AI announce move; default to off
-#        self.announce = False
 
     
     class tttCNN:
@@ -642,21 +617,19 @@ class deepAI:
             self.forward = theano.function([input],self.layer4.y_pred)        
             
 
-    def setIdentity(self,identity,opponentIdentity):
+    def setIdentity(self,identity):
         # X: 1, O: 10
         # Note: we set the identity here, but the agent does not use this 
         # information when evaluating where to go next when presented a board.
         # Rather, this label is for identifying to the tttGrid which player is 
         # making the move.
         self.identity = identity
-        self.opponent = opponentIdentity
         
     def setAnnounce(self,announceSetting):
         self.announce = announceSetting
 
 
     def createGradientFunctions(self,rewards):
-        ## TODO: rewards is unhappy indexing with a tensor?
         r_vector = T.vector("r_vector")
         
         loss = -T.mean(self.trainNet.layer4.p_y_given_x[T.arange(self.N),self.a] * r_vector[self.l])
@@ -680,93 +653,19 @@ class deepAI:
 
         return loss        
 
-
-
-
-#    def createCostExpression(self,images,actions,outcomes,rewards):
-#        '''
-#        Creates a symbolic expression (theano tensor) representing the total 
-#        cost, weighted by the outcome rewards
-#        
-#        images:     volume of 125x125 images that the deep agent was presented with
-#        outcomes:   the eventual outcome of the game (1,0,-1,-2) -> deep agent (won,drawn,loss,broke rule)
-#        actions:    the action that the deep agent took when presented with each frame in images
-#        rewards:    reward function for each possible game outcome
-#        '''
-#        a_r = T.ivector('a_r')
-#        l_r = T.iscalar('l_r')
-#        
-#        costFunction = theano.function(
-#                            [l_r],
-#                            self.trainNet.layer4.negative_log_likelihood(a_r),
-#                            givens={
-#                                self.x: images[T.eq(outcomes,l_r).nonzero(),:,:,:][0],
-#                                a_r: actions[T.eq(outcomes,l_r).nonzero()]
-#                            }
-#                        )
-#        
-#        totalCost = rewards[0]*costFunction(1)+rewards[1]*costFunction(0)+rewards[2]*costFunction(-1)+rewards[3]*costFunction(-2)
-#        
-#        return totalCost
-#     
-#    def createUpdateFunction(self,images,actions,outcomes):
-#        grads = T.grad(self.cost,self.trainNet.params)
-#         
-#        updates = [
-#                (param_i, param_i - self.alpha* grad_i)
-#                for param_i, grad_i in zip(self.trainNet.params, grads)
-#         ]
-#         
-#        backprop = theano.function(
-#            [images,actions,outcomes],
-#            self.cost,
-#            updates=updates    
-#        )
-#        
-#        return backprop
-#    
-#    def updateNetParams(self,images,actions,outcomes):
-#        iterationCost = self.backprop(images,actions,outcomes)
-#        print(iterationCost)
-#        
-#        self.testNet.params = self.trainNet.params
-        
-#    def createGradientFunction(self,images,actions,outcomes):
-#        '''
-#        Creates a symbolic expression (theano tensor) representing the gradient
-#        of the cost function with respect to the network parameters
-#        
-#        images:     volume of 125x125 images that the deep agent was presented with
-#        outcomes:   the eventual outcome of the game (1,0,-1,-2) -> deep agent (won,drawn,loss,broke rule)
-#        actions:    the action that the deep agent took when presented with each frame in images
-#        '''
-#        
-#        grads = T.grad(self.cost(actions,outcomes),self.net.params)
-#        
-#        updates = [
-#                (param_i, param_i - self.alpha* grad_i)
-#                for param_i, grad_i in zip(self.net.params, grads)
-#        ]
-#        
-#        backprop = theano.function(
-#            [images,actions,outcomes],
-#            self.net.layer4.errors(actions),
-#            updates=updates    
-#        )
-#        
-#        return backprop
     
     def loadDeepNet(self,filename):
         '''
         Load the parameters/architecture of the deep net from a file
         '''
-        self.net = pickle.load(open(filename,'rb'))
+        self.trainNet = pickle.load(open(filename,'rb'))
+        self.testNet.params = self.trainNet.params
         
     def saveDeepNet(self,filename):
         '''
         Save the deep net to a file
         '''
-        pickle.dump(self.net,open(filename,'wb'))
+        pickle.dump(self.trainNet,open(filename,'wb'))
         
     def ply(self,tttGrid):
         '''
@@ -799,55 +698,55 @@ class deepAI:
             
 
 
-class DeepRL_PolicyGradient:
+class trainDeepAI:
     '''
     Trains a class "deepAI" agent to play tic-tac-toe on tttGrid by playing
     against a class "optimalAI" agent
     '''
-    def __init__(self,deepAI,alpha=1e-4,gamma=0.95,epsilon=0.02):
-        self.player = deepAI
+    def __init__(self):
+        self.deepAI = deepAI()
+        self.game = tttGrid()
+        self.aiX = optimalAI(self.game.X,self.game,.5)
+        self.aiO = optimalAI(self.game.O,self.game,.6)  
         
-        # TODO: Figure if this should be placed here or in deepAI
-        # Hyperparameters
-        self.alpha = alpha                       # Learning rate
-        self.gamma = gamma                       # Discount rate
-        self.epsilon = epsilon                   # Exploration rate
-    
-    def train(self,totalGames,updateRate=500,saveRate=500):
-        # Set up a tictactoe grid/game
-        game = tttGrid()
+    def loadDeepAIParams(self,filename):
+        self.deepAI.loadDeepNet(filename)
         
-        # Initialize an opponent who plays X and an opponent who plays O
-        OpponentAs_X = optimalAI(game.X,game,difficulty=0.7)
-        OpponentAs_O = optimalAI(game.O,game,difficulty=0.7)
+    def train(self,moveLimit=100000,updateRate=500,saveRate=1000):
+        movesElapsed = 0
+#        allRecords = np.zeros((4,moveLimit//updateRate))
         
-        # Pre-allocate space for maximum number of moves (each an image frame) over games within an update batch
-        # The maximum possible number of images/moves occurs when the player is X and every game ends in a tie (5 moves)         
-        gameImages = np.empty((game.image.shape[0],game.image.shape[1],5*updateRate))*np.nan
-        # Actions taken after each image in gameImages was presented
-        gameActions = np.empty(5*updateRate)*np.nan
-        # Indicate the eventual winner of each frame
-        # (1,0,-1) for player's (win,tie,loss); -2 if rule broken
-        gameOutcomes = np.empty(5*updateRate)*np.nan
+        while(movesElapsed<moveLimit):
+            images,actions,outcomes,record = self.playNMoves(updateRate)
+#            allRecords[:,]
+            print("Wins: {0} \nDraws: {1} \nLosses: {2} \nBroken: {3}".format(record[0],record[1],record[2],record[3]))
+            
+            movesElapsed = movesElapsed + updateRate
+            
+            loss = self.deepAI.trainModel(images,actions-1,outcomes)        
+            print('Loss: {0}'.format(loss))
+            
+            if movesElapsed % saveRate == 0:
+                self.deepAI.saveDeepNet('trainNetParams.p')
 
+    def playNMoves(self,N):
+        images = np.zeros((N,1,125,125),dtype=np.int32)
+        actions = np.zeros(N,dtype=np.int32)
+        outcomes = np.zeros(N,dtype=np.int32)
+
+        wins = 0
+        draws = 0
+        losses = 0
+        broken = 0
         
         # Iterator within each batch for indexing into gameImages, gameActions, gameOutcomes
         i = 0     
         
-        for n in range(totalGames):
-            # Wipe the board for a new game
-            game.newGame()
+        while(True):
+            self.game.newGame()
             
             # Randomly assign player and opponent identities
-            playerIdentity = np.random.choice([game.X,game.O])
-            if playerIdentity == game.X:
-                self.player.setIdentity(game.X,game.O)
-                playerX = self.player
-                playerO = OpponentAs_O
-            else:
-                self.player.setIdentity(game.O,game.X)
-                playerO = self.player
-                playerX = OpponentAs_X
+            playerX,playerO = self.assignPlayerIdentities()
             
             winner = 0
             gameStart = i
@@ -855,56 +754,165 @@ class DeepRL_PolicyGradient:
             
             # Play a game to completion
             while winner==0:
+#                print("Player to go: {0}".format(playerToGo.identity))
+                
                 # Save image before move was made
-                gameImages[:,:,i] = game.getImage()
+                images[i,0,:,:] = self.game.getImage()
                 
                 # Have player make move
-                move = playerToGo.ply(game)
-                gameActions[i] = move
-                winner = game.move(playerToGo.identity,move)
+                move = playerToGo.ply(self.game)
+                actions[i] = move
+                winner = self.game.move(playerToGo.identity,move)
                 
                 # If gameover
-                if winner==game.X:          # X won
-                    if playerToGo.identity!=game.X:
-                        # Make sure something weird didn't just happen
-                        # TODO: Turn into exception
-                        print("Someone won, and it wasn't the player that just went...")
-                        return
-                    
-                    if self.player.identity==game.X:
-                        gameOutcomes[gameStart:(i+1)] = 1
+                if winner==self.game.X:          # X won                   
+                    if self.deepAI.identity==self.game.X:
+                        outcomes[gameStart:(i+1)] = 0
+                        wins = wins+1
                     else:
-                        gameOutcomes[gameStart:(i+1)] = -1
-                elif winner==game.O:        # O won
-                    if playerToGo.identity!=game.O:
-                        # Make sure something weird didn't just happen
-                        # TODO: Turn into exception
-                        print("Someone won, and it wasn't the player that just went...")
-                        return
-                    
-                    if self.player.identity==game.O:
-                        gameOutcomes[gameStart:(i+1)] = 1
+                        outcomes[gameStart:(i+1)] = 2
+                        losses = losses+1
+                elif winner==self.game.O:        # O won
+                    if self.deepAI.identity==self.game.O:
+                        outcomes[gameStart:(i+1)] = 0
+                        wins = wins+1
                     else:
-                        gameOutcomes[gameStart:(i+1)] = -1
-                elif winner==game.DRAW:     # Game ended in draw
-                    gameOutcomes[gameStart:(i+1)] = 0
+                        outcomes[gameStart:(i+1)] = 2
+                        losses = losses+1
+                elif winner==self.game.DRAW:     # Game ended in draw
+                    outcomes[gameStart:(i+1)] = 1
+                    draws = draws+1
                 elif winner==-1:            # Someone messed up (rule broken)
-                    gameOutcomes[gameStart:(i+1)] = -2
+                    outcomes[gameStart:(i+1)] = 3
+                    broken = broken+1
                     
+                # Increment batch counter
+#                print("{0}: Move {1} made by {2}, resulting in {3}".format(i,actions[i],playerToGo.identity,outcomes[i]))
+                i = i + 1
+                
+#                if i%50==0:
+#                    print(i)
+                
+                if i==N:
+#                    print("Wins: {0} \nDraws: {1} \nLosses: {2} \nBroken: {3}".format(wins,draws,losses,broken))
+                    record = [wins,draws,losses,broken]                   
+                    return images,actions,outcomes,record
+                
                 # The other player's turn to go next
                 if playerToGo.identity == playerX.identity:
                     playerToGo = playerO
                 else:
-                    playerToGo = playerX        
-                
-                # Increment batch counter
-                i = i + 1
+                    playerToGo = playerX    
+
+    def assignPlayerIdentities(self):
+        # Randomly assign player and opponent identities
+        playerIdentity = np.random.choice([self.game.X,self.game.O])
+        if playerIdentity == self.game.X:
+            self.deepAI.setIdentity(self.game.X)
+            playerX = self.deepAI
+            playerO = self.aiO
             
-            # Perform update on deep net parameters every "updateRate" number of games                
-            if n % updateRate == (updateRate-1):
-                imageBatch = gameImages[~np.isnan(gameImages)]
-                outcomeBatch = gameOutcomes[~np.isnan(gameOutcomes)]
-                actionBatch = gameActions[~np.isnan(gameActions)]
+#                print("DeepAI is {0}".format(self.game.X))
+        else:
+            self.deepAI.setIdentity(self.game.O)
+            playerO = self.deepAI
+            playerX = self.aiX
+            
+        return playerX,playerO
+    
+    
+#    def train(self,totalGames,updateRate=500,saveRate=500):
+#        # Set up a tictactoe grid/game
+#        game = tttGrid()
+#        
+#        # Initialize an opponent who plays X and an opponent who plays O
+#        OpponentAs_X = optimalAI(game.X,game,difficulty=0.7)
+#        OpponentAs_O = optimalAI(game.O,game,difficulty=0.7)
+#        
+#        # Pre-allocate space for maximum number of moves (each an image frame) over games within an update batch
+#        # The maximum possible number of images/moves occurs when the player is X and every game ends in a tie (5 moves)         
+#        gameImages = np.empty((game.image.shape[0],game.image.shape[1],5*updateRate))*np.nan
+#        # Actions taken after each image in gameImages was presented
+#        gameActions = np.empty(5*updateRate)*np.nan
+#        # Indicate the eventual winner of each frame
+#        # (1,0,-1) for player's (win,tie,loss); -2 if rule broken
+#        gameOutcomes = np.empty(5*updateRate)*np.nan
+#
+#        
+#        # Iterator within each batch for indexing into gameImages, gameActions, gameOutcomes
+#        i = 0     
+#        
+#        for n in range(totalGames):
+#            # Wipe the board for a new game
+#            game.newGame()
+#            
+#            # Randomly assign player and opponent identities
+#            playerIdentity = np.random.choice([game.X,game.O])
+#            if playerIdentity == game.X:
+#                self.player.setIdentity(game.X,game.O)
+#                playerX = self.player
+#                playerO = OpponentAs_O
+#            else:
+#                self.player.setIdentity(game.O,game.X)
+#                playerO = self.player
+#                playerX = OpponentAs_X
+#            
+#            winner = 0
+#            gameStart = i
+#            playerToGo = playerX
+#            
+#            # Play a game to completion
+#            while winner==0:
+#                # Save image before move was made
+#                gameImages[:,:,i] = game.getImage()
+#                
+#                # Have player make move
+#                move = playerToGo.ply(game)
+#                gameActions[i] = move
+#                winner = game.move(playerToGo.identity,move)
+#                
+#                # If gameover
+#                if winner==game.X:          # X won
+#                    if playerToGo.identity!=game.X:
+#                        # Make sure something weird didn't just happen
+#                        # TODO: Turn into exception
+#                        print("Someone won, and it wasn't the player that just went...")
+#                        return
+#                    
+#                    if self.player.identity==game.X:
+#                        gameOutcomes[gameStart:(i+1)] = 1
+#                    else:
+#                        gameOutcomes[gameStart:(i+1)] = -1
+#                elif winner==game.O:        # O won
+#                    if playerToGo.identity!=game.O:
+#                        # Make sure something weird didn't just happen
+#                        # TODO: Turn into exception
+#                        print("Someone won, and it wasn't the player that just went...")
+#                        return
+#                    
+#                    if self.player.identity==game.O:
+#                        gameOutcomes[gameStart:(i+1)] = 1
+#                    else:
+#                        gameOutcomes[gameStart:(i+1)] = -1
+#                elif winner==game.DRAW:     # Game ended in draw
+#                    gameOutcomes[gameStart:(i+1)] = 0
+#                elif winner==-1:            # Someone messed up (rule broken)
+#                    gameOutcomes[gameStart:(i+1)] = -2
+#                    
+#                # The other player's turn to go next
+#                if playerToGo.identity == playerX.identity:
+#                    playerToGo = playerO
+#                else:
+#                    playerToGo = playerX        
+#                
+#                # Increment batch counter
+#                i = i + 1
+#            
+#            # Perform update on deep net parameters every "updateRate" number of games                
+#            if n % updateRate == (updateRate-1):
+#                imageBatch = gameImages[~np.isnan(gameImages)]
+#                outcomeBatch = gameOutcomes[~np.isnan(gameOutcomes)]
+#                actionBatch = gameActions[~np.isnan(gameActions)]
                 
 
 ###############################################################################
