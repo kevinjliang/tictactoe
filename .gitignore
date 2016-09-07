@@ -10,3 +10,4 @@ Presentations/Figures/alphaGo.png
 *.out
 Data/batchData.p
 stack.p
+trainNetParams.p

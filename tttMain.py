@@ -5,7 +5,7 @@
 import tttTest
 import tictactoe as ttt
 import numpy as np
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 
 
 rng = np.random.RandomState(1337)
@@ -17,4 +17,10 @@ rng = np.random.RandomState(1337)
 
 
 trainer = ttt.trainDeepAI()
-trainer.train(moveLimit=1000)
+trainer.train(moveLimit=100000)
+
+#deepAItest = tttTest.testDeepAI()
+#game = ttt.tttGrid()
+#aiX = ttt.optimalAI(game.X,game,difficulty=.5)
+#aiO = ttt.optimalAI(game.O,game,difficulty=.7) 
+#deepAItest.generateImages(aiX,aiO,1000)

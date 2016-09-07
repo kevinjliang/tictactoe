@@ -491,9 +491,9 @@ class testDeepAI:
                         return
                     
                     if playerToGo.identity==self.game.O:
-                        labels[gameStart:(i+1)] = 0
-                    else:
                         labels[gameStart:(i+1)] = 2
+                    else:
+                        labels[gameStart:(i+1)] = 0
                 elif winner==self.game.DRAW:     # Game ended in draw
                     labels[gameStart:(i+1)] = 1
                 elif winner==-1:            # Someone messed up (rule broken)
@@ -501,7 +501,6 @@ class testDeepAI:
                     
                 # The other player's turn to go next
                 if playerToGo.identity == aiX.identity:
-                    
                     playerToGo = aiO
                 else:
                     playerToGo = aiX        
@@ -509,6 +508,7 @@ class testDeepAI:
                 # Increment batch counter
                 i = i + 1   
                 if i==batch_size:
+                    print(labels)
                     return images,actions,labels
             
             print(winner)
