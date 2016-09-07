@@ -710,7 +710,7 @@ class trainDeepAI:
     def loadDeepAIParams(self,filename):
         self.deepAI.loadDeepNet(filename)
         
-    def train(self,moveLimit=100000,updateRate=500,saveRate=1000):
+    def train(self,moveLimit=100000,updateRate=500,saveRate=5000):
         movesElapsed = 0
         allRecords = np.zeros((4,moveLimit//updateRate))
         recIndex = 0
@@ -719,17 +719,18 @@ class trainDeepAI:
             images,actions,outcomes,duration,who,record = self.playNMoves(updateRate)
             allRecords[:,recIndex] = record
             recIndex = recIndex + 1
-            print("Wins: {0} \nDraws: {1} \nLosses: {2} \nBroken: {3}".format(record[0],record[1],record[2],record[3]))
+            print("*****Moves Played: {0}".format(movesElapsed))
+            print("Wins: {0} \tDraws: {1} \tLosses: {2} \tBroken: {3}".format(record[0],record[1],record[2],record[3]))
             
             movesElapsed = movesElapsed + updateRate
             
             loss = self.deepAI.trainModel(images,actions-1,outcomes,duration,who)        
-            print('Loss: {0}'.format(loss))
+            print('Loss: {0}\n'.format(loss))
             
             if movesElapsed % saveRate == 0:
                 self.deepAI.saveDeepNet('trainNetParams.p')
                 
-        print(allRecords)
+        np.savetxt('allRecords.txt',allRecords)
 
     def playNMoves(self,N):
         images = np.zeros((N,1,64,64),dtype=np.int32)
