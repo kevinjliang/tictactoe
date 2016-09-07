@@ -494,7 +494,7 @@ class optimalAI:
 ## Takes in 125x125 image of tttGrid as input
 
 class deepAI:
-    def __init__(self,alpha=1e-2,gamma=0.9,epsilon=0.05):       
+    def __init__(self,alpha=1e-3,gamma=0.9,epsilon=0.05):       
         self.identity = []
         
         # Hyperparameters
@@ -510,7 +510,7 @@ class deepAI:
         self.r_l = -1                            # loss
         self.r_b = -10                           # broken rule
         
-        rewards = np.array([self.r_w, self.r_d, self.r_l, self.r_b])
+        rewards = np.array([self.r_w, self.r_d, self.r_l, self.r_b],dtype=np.int32)
         
         self.x = T.tensor4('x')                  # images
         self.a = T.ivector('a')                  # actions
@@ -601,7 +601,7 @@ class deepAI:
             )
 
             # Logistic regression with softmax
-            self.layer4 = layers.LogisticRegression(input=self.layer3.output, n_in=250, n_out=9)
+            self.layer4 = layers.LogisticRegression(rng,input=self.layer3.output, n_in=250, n_out=9)
             
             self.params = self.layer4.params + self.layer3.params + self.layer2.params + self.layer1.params + self.layer0.params
             
@@ -628,7 +628,7 @@ class deepAI:
         player_loss = -T.mean(self.trainNet.layer4.p_y_given_x[T.arange(self.N),self.a] * r_vector[self.l] * T.pow(self.gamma,self.d) * self.w)
         # Loss for opponent's moves  
         # Technically, opponent breaking rule should not be rewarded, but it won't happen, so ignore it
-        opponent_loss = T.mean(self.trainNet.layer4.p_y_given_x[T.arange(self.N),self.a] * r_vector[self.l] * T.pow(self.gamma,self.d) * (1-self.w))
+        opponent_loss = -T.mean(self.trainNet.layer4.p_y_given_x[T.arange(self.N),self.a] * r_vector[self.l] * T.pow(self.gamma,self.d) * (1-self.w))
         
         # Total loss is sum of loss of the player minus the loss of the opponent (zero-sum game)
         loss = player_loss - opponent_loss        
