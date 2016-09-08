@@ -494,7 +494,7 @@ class optimalAI:
 ## Takes in 125x125 image of tttGrid as input
 
 class deepAI:
-    def __init__(self,alpha=1e-3,gamma=0.9,epsilon=0.05):       
+    def __init__(self,alpha=1e-3,gamma=0.95,epsilon=0.05):       
         self.identity = []
         
         # Hyperparameters
@@ -520,11 +520,7 @@ class deepAI:
         rng = np.random.RandomState(1337)
         
         # Convolutional neural net used as function approximator
-        # Network for training
-        self.trainNet = self.tttCNN(self.x, rng, self.N)
-        
-        # Network for testing (playing games)
-        self.testNet = self.tttCNN(self.x, rng, 1)
+        self.trainNet = self.tttCNN(self.x, rng)
         
         # Define loss function,gradients,and update method for training
         self.loss,self.gradients,self.updateParams = self.createGradientFunctions(rewards)
@@ -540,33 +536,19 @@ class deepAI:
         Currently:
         CNN w/ maxPool -> CNN w/ maxPool -> fully connected layer -> logistic
         '''
-        def __init__(self, input, rng, batch_size):
+        def __init__(self, input, rng):
             '''
             :type input: theano.tensor.dtensor4
             :param input: symbolic image tensor, of shape image_shape
             
             :type rng: numpy.random.RandomState
             :param rng: a random number generator used to initialize weights
-            
-            :type batch_size: theano.tensor.iscalar
-            :param: size of the mini-batch being passed through the network
-            
-#            :type results: theano.tensor.ivector
-#            :param: end result of each game for each image 
-#            
-#            :type rewards: tuple or list of length 4
-#            :param: rewards for (W)in, (D)raw, (L)oss, or (B)roken rule
             '''
-            ## Network Architecture
-            
-            # Reshape input:            
-            layer0_input = input.reshape((batch_size, 1, 64, 64))         
-            
+            ## Network Architecture            
             # Layer 0: Convolutional group (2 cnn layers)
             self.layer0 = layers.convGroup(
                 rng,
-                input=layer0_input,
-                image_shape=(batch_size, 1, 64, 64),
+                input=input,
                 filter_shapes=((16,1,3,3),(32,16,3,3)),
                 finalpoolsize=(2,2)            
             )
@@ -575,7 +557,6 @@ class deepAI:
             self.layer1 = layers.convGroup(
                 rng,
                 input=self.layer0.output,
-                image_shape=(batch_size, 32, 32, 32),
                 filter_shapes=((32,32,3,3),(32,32,3,3)),
                 finalpoolsize=(2,2)            
             )
@@ -584,7 +565,6 @@ class deepAI:
             self.layer2 = layers.convGroup(
                 rng,
                 input=self.layer1.output,
-                image_shape=(batch_size, 32, 16, 16),
                 filter_shapes=((32,32,3,3),(32,32,3,3)),
                 finalpoolsize=(2,2)            
             )
@@ -596,12 +576,12 @@ class deepAI:
                 rng,
                 input=layer3_input,
                 n_in=32 * 8*8,
-                n_out=250,
+                n_out=50,
                 activation=layers.relu
             )
 
             # Logistic regression with softmax
-            self.layer4 = layers.LogisticRegression(rng,input=self.layer3.output, n_in=250, n_out=9)
+            self.layer4 = layers.LogisticRegression(rng,input=self.layer3.output, n_in=50, n_out=9)
             
             self.params = self.layer4.params + self.layer3.params + self.layer2.params + self.layer1.params + self.layer0.params
             
@@ -627,8 +607,8 @@ class deepAI:
         # Loss expression for deep agent's moves
         player_loss = -T.mean(self.trainNet.layer4.p_y_given_x[T.arange(self.N),self.a] * r_vector[self.l] * T.pow(self.gamma,self.d) * self.w)
         # Loss for opponent's moves  
-        # Technically, opponent breaking rule should not be rewarded, but it won't happen, so ignore it
-        opponent_loss = -T.mean(self.trainNet.layer4.p_y_given_x[T.arange(self.N),self.a] * r_vector[self.l] * T.pow(self.gamma,self.d) * (1-self.w))
+        # Opponent breaking rule should not be rewarded
+        opponent_loss = -T.mean(self.trainNet.layer4.p_y_given_x[T.arange(self.N),self.a] * r_vector[self.l] * T.neq(self.l,3) * T.pow(self.gamma,self.d) * (1-self.w))
         
         # Total loss is sum of loss of the player minus the loss of the opponent (zero-sum game)
         loss = player_loss - opponent_loss        
@@ -647,8 +627,6 @@ class deepAI:
         
     def trainModel(self,images,actions,outcomes,duration,who):
         loss = self.updateParams(images,actions,outcomes,duration,who)
-        
-        self.testNet.params = self.trainNet.params
 
         return loss        
 
@@ -658,7 +636,6 @@ class deepAI:
         Load the parameters/architecture of the deep net from a file
         '''
         self.trainNet = pickle.load(open(filename,'rb'))
-        self.testNet.params = self.trainNet.params
         
     def saveDeepNet(self,filename):
         '''
@@ -675,7 +652,7 @@ class deepAI:
         image = tttGrid.getImage()
         if np.random.uniform()>self.epsilon:
             # Exploitation: Pick move based on net
-            move = self.testNet.forward(image.reshape(1,1,image.shape[0],image.shape[1]))
+            move = self.trainNet.forward(image.reshape(1,1,image.shape[0],image.shape[1]))
             
             if self.announce:
                 print("***Deep Agent is exploiting with move {0}".format(move))
@@ -710,34 +687,35 @@ class trainDeepAI:
     def loadDeepAIParams(self,filename):
         self.deepAI.loadDeepNet(filename)
         
-    def train(self,moveLimit=100000,updateRate=500,saveRate=5000):
-        movesElapsed = 0
-        allRecords = np.zeros((4,moveLimit//updateRate))
+    def train(self,gameLimit=100000,updateRate=200,saveRate=5000):
+        gamesElapsed = 0
+        allRecords = np.zeros((4,gameLimit//updateRate))
         recIndex = 0
         
-        while(movesElapsed<moveLimit):
-            images,actions,outcomes,duration,who,record = self.playNMoves(updateRate)
+        while(gamesElapsed<gameLimit):
+            images,actions,outcomes,duration,who,record = self.playNGames(updateRate)
             allRecords[:,recIndex] = record
             recIndex = recIndex + 1
-            print("*****Moves Played: {0}".format(movesElapsed))
+            print("*****Games Played: {0}".format(gamesElapsed))
             print("Wins: {0} \tDraws: {1} \tLosses: {2} \tBroken: {3}".format(record[0],record[1],record[2],record[3]))
             
-            movesElapsed = movesElapsed + updateRate
+            gamesElapsed = gamesElapsed + updateRate
             
             loss = self.deepAI.trainModel(images,actions-1,outcomes,duration,who)        
             print('Loss: {0}\n'.format(loss))
             
-            if movesElapsed % saveRate == 0:
-                self.deepAI.saveDeepNet('trainNetParams.p')
+            if gamesElapsed % saveRate == 0:
+                print("Saving deep net")
+                self.deepAI.saveDeepNet('netParams.p')
                 
         np.savetxt('allRecords.txt',allRecords)
 
-    def playNMoves(self,N):
-        images = np.zeros((N,1,64,64),dtype=np.int32)
-        actions = np.zeros(N,dtype=np.int32)
-        outcomes = np.zeros(N,dtype=np.int32)
-        duration = np.zeros(N,dtype=np.int32)
-        who = np.zeros(N,dtype=np.int32)
+    def playNGames(self,N):
+        images = np.zeros((N*9,1,64,64),dtype=np.int32)
+        actions = np.zeros(N*9,dtype=np.int32)
+        outcomes = np.zeros(N*9,dtype=np.int32)
+        duration = np.zeros(N*9,dtype=np.int32)
+        who = np.zeros(N*9,dtype=np.int32)
 
         wins = 0
         draws = 0
@@ -745,7 +723,8 @@ class trainDeepAI:
         broken = 0
         
         # Iterator within each batch for indexing into gameImages, gameActions, gameOutcomes
-        i = 0     
+        i = 0   
+        gamesCompleted = 0
         
         while(True):
             self.game.newGame()
@@ -780,7 +759,6 @@ class trainDeepAI:
                     else:
                         outcomes[gameStart:(i+1)] = 2
                         losses = losses+1
-                    duration[gameStart:(i+1)] = i-gameStart
                 elif winner==self.game.O:        # O won
                     if self.deepAI.identity==self.game.O:
                         outcomes[gameStart:(i+1)] = 0
@@ -788,37 +766,35 @@ class trainDeepAI:
                     else:
                         outcomes[gameStart:(i+1)] = 2
                         losses = losses+1
-                    duration[gameStart:(i+1)] = i-gameStart
                 elif winner==self.game.DRAW:     # Game ended in draw
                     outcomes[gameStart:(i+1)] = 1
-                    duration[gameStart:(i+1)] = i-gameStart
                     draws = draws+1
                 elif winner==-1:            # Someone messed up (rule broken)
                     outcomes[gameStart:(i+1)] = 3
-                    duration[gameStart:(i+1)] = i-gameStart
                     broken = broken+1
                     
                 # Increment batch counter
 #                print("{0}: Move {1} made by {2}, resulting in {3}".format(i,actions[i],playerToGo.identity,outcomes[i]))
                 i = i + 1
                 
-#                if i%50==0:
-#                    print(i)
-                
-                if i==N:
-#                    print("Wins: {0} \nDraws: {1} \nLosses: {2} \nBroken: {3}".format(wins,draws,losses,broken))
-                    record = [wins,draws,losses,broken]  
-                    
-#                    pickle.dump([images,actions,outcomes,duration,record,aiMove],open('stack.p','wb'))
-                                        
-                    
-                    return images,actions,outcomes,duration,who,record
-                
                 # The other player's turn to go next
                 if playerToGo.identity == playerX.identity:
                     playerToGo = playerO
                 else:
                     playerToGo = playerX    
+                    
+            gamesCompleted = gamesCompleted+1
+            duration[gameStart:(i)] = i-gameStart
+            if gamesCompleted==N:
+#                    print("Wins: {0} \nDraws: {1} \nLosses: {2} \nBroken: {3}".format(wins,draws,losses,broken))
+                record = [wins,draws,losses,broken]                  
+#                    pickle.dump([images,actions,outcomes,duration,record,aiMove],open('stack.p','wb'))
+                images = images[0:i]  
+                actions = actions[0:i]
+                outcomes = outcomes[0:i]
+                duration = duration[0:i]
+                who = who[0:i]
+                return images,actions,outcomes,duration,who,record
 
     def assignPlayerIdentities(self):
         # Randomly assign player and opponent identities

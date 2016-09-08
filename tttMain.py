@@ -18,9 +18,13 @@ import numpy as np
 #deepAItest = tttTest.testDeepAI()
 #deepAItest.playNMoves(500)
 
-
 trainer = ttt.trainDeepAI()
-trainer.train(moveLimit=100000)
+images,actions,outcomes,duration,who,record = trainer.playNGames(100)
+np.savetxt('images.txt',images)
+np.savetxt('everythingElse.txt',(actions,outcomes,duration,who))
+np.savetxt('WellExceptTheRecord.txt',record)
+
+trainer.train(gameLimit=100000)
 
 #deepAItest = tttTest.testDeepAI()
 #game = ttt.tttGrid()
@@ -39,8 +43,3 @@ trainer.train(moveLimit=100000)
 #p = np.array([[0.6,0.4],[0.3,0.7]])
 #print(f(p))
 
-trainer = ttt.trainDeepAI()
-images,actions,outcomes,duration,who,record = trainer.playNMoves(500)
-np.savetxt('images.txt',images)
-np.savetxt('everythingElse.txt',(actions,outcomes,duration,who))
-np.savetxt('WellExceptTheRecord.txt',record)

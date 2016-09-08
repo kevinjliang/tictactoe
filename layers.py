@@ -223,7 +223,7 @@ class HiddenLayer(object):
 class LeNetConvPoolLayer(object):
     """Pool Layer of a convolutional network """
 
-    def __init__(self, rng, input, filter_shape, image_shape, poolsize=(2, 2)):
+    def __init__(self, rng, input, filter_shape, poolsize=(2, 2)):
         """
         Allocate a LeNetConvPoolLayer with shared variable internal parameters.
 
@@ -237,15 +237,10 @@ class LeNetConvPoolLayer(object):
         :param filter_shape: (number of filters, num input feature maps,
                               filter height, filter width)
 
-        :type image_shape: tuple or list of length 4
-        :param image_shape: (batch size, num input feature maps,
-                             image height, image width)
-
         :type poolsize: tuple or list of length 2
         :param poolsize: the downsampling (pooling) factor (#rows, #cols)
         """
 
-        assert image_shape[1] == filter_shape[1]
         self.input = input
 
         # there are "num input feature maps * filter height * filter width"
@@ -275,7 +270,6 @@ class LeNetConvPoolLayer(object):
             input=input,
             filters=self.W,
             filter_shape=filter_shape,
-            input_shape=image_shape,
             border_mode='full'
         )
 
@@ -303,23 +297,18 @@ class LeNetConvPoolLayer(object):
 class convGroup(object):
     """Group of convolutional layers with a max pool at the end"""
     
-    def __init__(self,rng,input,image_shape,filter_shapes,finalpoolsize=(2,2)):  
+    def __init__(self,rng,input,filter_shapes,finalpoolsize=(2,2)):  
         
         self.sublayer0 = LeNetConvPoolLayer(
             rng,
             input=input,
-            image_shape=image_shape,
             filter_shape=filter_shapes[0],
             poolsize=(1,1)
         )
         
-        # Adjust layer 0's input shape to account for multiple layer 0 filters
-        image_shape1 = (image_shape[0],filter_shapes[0][0],image_shape[2],image_shape[3])     
-        
         self.sublayer1 = LeNetConvPoolLayer(
             rng,
             input=self.sublayer0.output,
-            image_shape=image_shape1,
             filter_shape=filter_shapes[1],
             poolsize=finalpoolsize
         )
