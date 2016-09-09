@@ -15,15 +15,16 @@ import theano.tensor as T
 
 
 trainer = ttt.trainDeepAI()
-images,actions,outcomes,duration,who,record = trainer.playNGames(100)
-#np.savetxt('images.txt',images)     # Maybe save states instead?
-np.savetxt('actions.txt',actions,format='%d')
-np.savetxt('outcomes.txt',outcomes,format='%d')
-np.savetxt('duration.txt',duration,format='%d')
-np.savetxt('who.txt',who,format='%d')
+#trainer.loadDeepAIParams('netParams.p')
+images,actions,outcomes,duration,who,record = trainer.playNGames(50)
+np.savetxt('images.txt',images.reshape((64,-1)))     # Maybe save states instead?
+np.savetxt('actions.txt',actions,fmt='%d')
+np.savetxt('outcomes.txt',outcomes,fmt='%d')
+np.savetxt('duration.txt',duration,fmt='%d')
+np.savetxt('who.txt',who,fmt='%d')
 np.savetxt('record.txt',record)
 
-trainer.train(gameLimit=100000)
+trainer.train(gameLimit=1000000)
 
 #x = T.vector('x').astype("int32")
 #M = T.matrix('M').astype(theano.config.floatX)

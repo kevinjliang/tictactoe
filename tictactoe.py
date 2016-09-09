@@ -585,7 +585,7 @@ class deepAI:
             self.params = self.layer4.params + self.layer3.params + self.layer2.params + self.layer1.params + self.layer0.params
             
             # Perform forward pass on one image
-            self.forward = theano.function([input],self.layer4.y_pred)    
+            self.forward = theano.function([input],self.layer4.p_y_given_x)    
             
 #            trng = T.shared_randomstreams.RandomStreams()
 #            move = trng.choice(a=T.arange(1,10),p=self.layer4.p_y_given_x)
@@ -691,7 +691,8 @@ class deepAI:
         image = tttGrid.getImage()
         if np.random.uniform()>self.epsilon:
             # Exploitation: Pick move based on net
-            move = self.trainNet.forward(image.reshape(1,1,image.shape[0],image.shape[1])) + 1
+            p_move = np.squeeze(self.trainNet.forward(image.reshape(1,1,image.shape[0],image.shape[1])))
+            move = np.random.choice(a=np.arange(1,10),p=p_move)
             
             if self.announce:
                 print("***Deep Agent is exploiting with move {0}".format(move))
@@ -726,7 +727,7 @@ class trainDeepAI:
     def loadDeepAIParams(self,filename):
         self.deepAI.loadDeepNet(filename)
         
-    def train(self,gameLimit=100000,updateRate=200,saveRate=5000):
+    def train(self,gameLimit=100000,updateRate=250,saveRate=5000):
         gamesElapsed = 0
         allRecords = np.zeros((4,gameLimit//updateRate))
         recIndex = 0
@@ -787,6 +788,8 @@ class trainDeepAI:
                 actions[i] = move
                 if playerToGo.identity==self.deepAI.identity:
                     who[i] = 1
+                else:           # Must do this in case of rewrite from broken
+                    who[i] = 0
                 winner = self.game.move(playerToGo.identity,move)
                 
                 
@@ -809,7 +812,13 @@ class trainDeepAI:
                     outcomes[gameStart:(i+1)] = 1
                     draws = draws+1
                 elif winner==-1:            # Someone messed up (rule broken)
-                    outcomes[gameStart:(i+1)] = 3
+                    # Discard images leading up to broken move and reset counter
+                    images[gameStart,0,:,:] = images[i,0,:,:]
+                    actions[gameStart] = actions[i]
+                    who[gameStart] = who[i] 
+                    outcomes[gameStart] = 3
+                    
+                    i = gameStart
                     broken = broken+1
                     
                 # Increment batch counter
