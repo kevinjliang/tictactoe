@@ -502,8 +502,6 @@ class deepAI:
         self.gamma = gamma                       # Discount rate
         self.epsilon = epsilon                   # Exploration rate
         
-        self.N = 500                             # Mini-batch size
-        
         # Rewards for various outcomes
         self.r_w = 1                             # win
         self.r_d = 0                             # draw
@@ -605,10 +603,10 @@ class deepAI:
         r_vector = T.ivector("r_vector")
         
         # Loss expression for deep agent's moves
-        player_loss = -T.mean(self.trainNet.layer4.p_y_given_x[T.arange(self.N),self.a] * r_vector[self.l] * T.pow(self.gamma,self.d) * self.w)
+        player_loss = -T.mean(self.trainNet.layer4.p_y_given_x[T.arange(self.a.shape[0],self.a] * r_vector[self.l] * T.pow(self.gamma,self.d) * self.w)
         # Loss for opponent's moves  
         # Opponent breaking rule should not be rewarded
-        opponent_loss = -T.mean(self.trainNet.layer4.p_y_given_x[T.arange(self.N),self.a] * r_vector[self.l] * T.neq(self.l,3) * T.pow(self.gamma,self.d) * (1-self.w))
+        opponent_loss = -T.mean(self.trainNet.layer4.p_y_given_x[T.arange(self.a.shape[0]),self.a] * r_vector[self.l] * T.neq(self.l,3) * T.pow(self.gamma,self.d) * (1-self.w))
         
         # Total loss is sum of loss of the player minus the loss of the opponent (zero-sum game)
         loss = player_loss - opponent_loss        
