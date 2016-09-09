@@ -24,7 +24,7 @@ np.savetxt('duration.txt',duration,fmt='%d')
 np.savetxt('who.txt',who,fmt='%d')
 np.savetxt('record.txt',record)
 
-trainer.train(gameLimit=1000000)
+trainer.train(gameLimit=15000)
 
 #x = T.vector('x').astype("int32")
 #M = T.matrix('M').astype(theano.config.floatX)
