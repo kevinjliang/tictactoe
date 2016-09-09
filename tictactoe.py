@@ -521,7 +521,8 @@ class deepAI:
         self.trainNet = self.tttCNN(self.x, rng)
         
         # Define loss function,gradients,and update method for training
-        self.loss,self.gradients,self.updateParams = self.createGradientFunctions(rewards)
+#        self.loss,self.gradients,self.updateParams = self.createGradientFunctions(rewards)
+        self.loss,self.updateParams = self.createGradientFunctions(rewards)
         
         # Flag to have AI announce rule being followed; default to off
         self.announce = False
@@ -584,7 +585,11 @@ class deepAI:
             self.params = self.layer4.params + self.layer3.params + self.layer2.params + self.layer1.params + self.layer0.params
             
             # Perform forward pass on one image
-            self.forward = theano.function([input],self.layer4.y_pred)        
+            self.forward = theano.function([input],self.layer4.y_pred)    
+            
+#            trng = T.shared_randomstreams.RandomStreams()
+#            move = trng.choice(a=T.arange(1,10),p=self.layer4.p_y_given_x)
+#            self.forward = theano.function([input],move) 
             
 
     def setIdentity(self,identity):
@@ -603,25 +608,61 @@ class deepAI:
         r_vector = T.ivector("r_vector")
         
         # Loss expression for deep agent's moves
-        player_loss = -T.mean(self.trainNet.layer4.p_y_given_x[T.arange(self.a.shape[0],self.a] * r_vector[self.l] * T.pow(self.gamma,self.d) * self.w)
+        player_loss = -T.mean(self.trainNet.layer4.p_y_given_x[T.arange(self.a.shape[0]),self.a] * r_vector[self.l] * T.pow(self.gamma,self.d) * self.w)
         # Loss for opponent's moves  
         # Opponent breaking rule should not be rewarded
         opponent_loss = -T.mean(self.trainNet.layer4.p_y_given_x[T.arange(self.a.shape[0]),self.a] * r_vector[self.l] * T.neq(self.l,3) * T.pow(self.gamma,self.d) * (1-self.w))
         
         # Total loss is sum of loss of the player minus the loss of the opponent (zero-sum game)
         loss = player_loss - opponent_loss        
-        gradients = T.grad(loss,self.trainNet.params)
-
-        updates = [
-                (param_i, param_i - self.alpha* grad_i)
-                for param_i, grad_i in zip(self.trainNet.params, gradients)
-         ]
+#        gradients = T.grad(loss,self.trainNet.params)
+#
+#        updates = [
+#                (param_i, param_i - self.alpha* grad_i)
+#                for param_i, grad_i in zip(self.trainNet.params, gradients)
+#         ]
+        
+        updates = self.adam(loss=loss,all_params=self.trainNet.params)
          
         givens = {r_vector: rewards}
 
         updateParams = theano.function([self.x,self.a,self.l,self.d,self.w],loss,updates=updates,givens=givens)
-        return loss,gradients,updateParams
-
+#        return loss,gradients,updateParams
+        return loss,updateParams
+    
+    def adam(self,loss, all_params, learning_rate=0.001, b1=0.9, b2=0.999, e=1e-8, gamma=1-1e-8):
+        """
+        ADAM update rules
+        Default values are taken from [Kingma2014]
+        References:
+        [Kingma2014] Kingma, Diederik, and Jimmy Ba.
+        "Adam: A Method for Stochastic Optimization."
+        arXiv preprint arXiv:1412.6980 (2014).
+        http://arxiv.org/pdf/1412.6980v4.pdf
+        """
+        updates = []
+        all_grads = T.grad(loss, all_params)
+        alpha = learning_rate
+        t = theano.shared(np.float32(1))
+        b1_t = b1*gamma**(t-1)   #(Decay the first moment running average coefficient)
+    
+        for theta_previous, g in zip(all_params, all_grads):
+            m_previous = theano.shared(np.zeros(theta_previous.get_value().shape,
+                                                dtype=theano.config.floatX))
+            v_previous = theano.shared(np.zeros(theta_previous.get_value().shape,
+                                                dtype=theano.config.floatX))
+    
+            m = b1_t*m_previous + (1 - b1_t)*g                             # (Update biased first moment estimate)
+            v = b2*v_previous + (1 - b2)*g**2                              # (Update biased second raw moment estimate)
+            m_hat = m / (1-b1**t)                                          # (Compute bias-corrected first moment estimate)
+            v_hat = v / (1-b2**t)                                          # (Compute bias-corrected second raw moment estimate)
+            theta = theta_previous - (alpha * m_hat) / (T.sqrt(v_hat) + e) #(Update parameters)
+    
+            updates.append((m_previous, m))
+            updates.append((v_previous, v))
+            updates.append((theta_previous, theta) )
+        updates.append((t, t + 1.))
+        return updates
         
     def trainModel(self,images,actions,outcomes,duration,who):
         loss = self.updateParams(images,actions,outcomes,duration,who)
@@ -650,7 +691,7 @@ class deepAI:
         image = tttGrid.getImage()
         if np.random.uniform()>self.epsilon:
             # Exploitation: Pick move based on net
-            move = self.trainNet.forward(image.reshape(1,1,image.shape[0],image.shape[1]))
+            move = self.trainNet.forward(image.reshape(1,1,image.shape[0],image.shape[1])) + 1
             
             if self.announce:
                 print("***Deep Agent is exploiting with move {0}".format(move))

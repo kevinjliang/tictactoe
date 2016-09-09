@@ -14,24 +14,27 @@ import theano.tensor as T
 #rng = np.random.RandomState(1337)
 
 
-#trainer = ttt.trainDeepAI()
-#images,actions,outcomes,duration,who,record = trainer.playNGames(100)
-##np.savetxt('images.txt',images)     # Maybe save states instead?
-#np.savetxt('everythingElse.txt',(actions,outcomes,duration,who))
-#np.savetxt('WellExceptTheRecord.txt',record)
+trainer = ttt.trainDeepAI()
+images,actions,outcomes,duration,who,record = trainer.playNGames(100)
+#np.savetxt('images.txt',images)     # Maybe save states instead?
+np.savetxt('actions.txt',actions,format='%d')
+np.savetxt('outcomes.txt',outcomes,format='%d')
+np.savetxt('duration.txt',duration,format='%d')
+np.savetxt('who.txt',who,format='%d')
+np.savetxt('record.txt',record)
+
+trainer.train(gameLimit=100000)
+
+#x = T.vector('x').astype("int32")
+#M = T.matrix('M').astype(theano.config.floatX)
 #
-#trainer.train(gameLimit=100000)
-
-x = T.vector('x').astype("int32")
-M = T.matrix('M').astype(theano.config.floatX)
-
-v = M[T.arange(x.shape[0]),x]
-
-f = theano.function([x,M],v)
-
-xval = np.array((1,2,3,4))
-Mval = np.random.rand(5,6)
-print(f(xval,Mval))
+#v = M[T.arange(x.shape[0]),x]
+#
+#f = theano.function([x,M],v)
+#
+#xval = np.array((1,2,3,4))
+#Mval = np.random.rand(5,6)
+#print(f(xval,Mval))
 
 #pyx = T.vector('pyx')
 #srng = MRG_RandomStreams()
