@@ -725,9 +725,34 @@ class trainDeepAI:
         self.aiO = optimalAI(self.game.O,self.game,.6)  
         
     def loadDeepAIParams(self,filename):
+        '''
+        Load the deep net's parameters from a file from a previous run
+        Allows for restarting a training in case of an interruption
+        '''
         self.deepAI.loadDeepNet(filename)
+    
+    def trainNTimes(self,N,gameLimit=15000,updateRate=250,saveRate=5000):
+        '''
+        Run the below train() method N times and average the records
+        '''
+        avgRecords = np.zeros((4,gameLimit//updateRate))
         
-    def train(self,gameLimit=100000,updateRate=250,saveRate=5000):
+        for i in range(N):
+            print('**************** Initializing AI #{0} *****************'.format(i))
+            self.deepAI = deepAI()
+            records = self.train(gameLimit=gameLimit,updateRate=updateRate,saveRate=saveRate)
+            np.savetxt('records{0}.txt'.format(i),records,fmt='%d')
+            
+            avgRecords = avgRecords + records
+        
+        return avgRecords/N
+        
+    def train(self,gameLimit=15000,updateRate=250,saveRate=5000):
+        '''
+        Train the deepAI agent to play tictactoe
+        
+        Play games in batches of updateRate, take the game data, and train the agent. 
+        '''
         gamesElapsed = 0
         allRecords = np.zeros((4,gameLimit//updateRate))
         recIndex = 0
@@ -748,9 +773,23 @@ class trainDeepAI:
                 print("Saving deep net")
                 self.deepAI.saveDeepNet('netParams.p')
                 
-        np.savetxt('allRecords.txt',allRecords)
+#        np.savetxt('allRecords.txt',allRecords,fmt='%d')
+        return allRecords
 
     def playNGames(self,N):
+        '''
+        Play N number of games to completion (or a rule being broken)
+        Results in i number of moves (depending on how long each game takes)
+        
+        Returns:
+        images (i,1,64,64): Images of the game state before each move
+        actions (i)       : The move taken after seeing the aforementioned image
+        outcomes (i)      : The eventual result of the game that the image was part of
+                                - (0,1,2,3) -> (W,D,L,B)
+        duration (i)      : How many moves the game took to finish (for discounting)
+        who (i)           : The identity of the player making this move (1 -> deepAI)
+        record (4)        : Number of each game outcome within the N games (W,L,D,B)
+        '''
         images = np.zeros((N*9,1,64,64),dtype=np.int32)
         actions = np.zeros(N*9,dtype=np.int32)
         outcomes = np.zeros(N*9,dtype=np.int32)
@@ -845,7 +884,9 @@ class trainDeepAI:
                 return images,actions,outcomes,duration,who,record
 
     def assignPlayerIdentities(self):
-        # Randomly assign player and opponent identities
+        '''
+        Randomly assign player and opponent identities
+        '''
         playerIdentity = np.random.choice([self.game.X,self.game.O])
         if playerIdentity == self.game.X:
             self.deepAI.setIdentity(self.game.X)
