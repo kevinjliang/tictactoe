@@ -494,7 +494,7 @@ class optimalAI:
 ## Takes in 125x125 image of tttGrid as input
 
 class deepAI:
-    def __init__(self,alpha=1e-3,gamma=0.95,epsilon=0.05):       
+    def __init__(self,alpha=1e-3,gamma=0.95,epsilon=0.02):       
         self.identity = []
         
         # Hyperparameters
