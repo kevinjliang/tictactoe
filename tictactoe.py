@@ -494,7 +494,7 @@ class optimalAI:
 ## Takes in 125x125 image of tttGrid as input
 
 class deepAI:
-    def __init__(self,alpha=1e-3,gamma=0.95,epsilon=0.02):       
+    def __init__(self,alpha=1e-3,gamma=0.97,epsilon=0.0):       
         self.identity = []
         
         # Hyperparameters
@@ -548,7 +548,7 @@ class deepAI:
             self.layer0 = layers.convGroup(
                 rng,
                 input=input,
-                filter_shapes=((16,1,3,3),(32,16,3,3)),
+                filter_shapes=((8,1,3,3),(16,8,3,3)),
                 finalpoolsize=(2,2)            
             )
             
@@ -556,7 +556,7 @@ class deepAI:
             self.layer1 = layers.convGroup(
                 rng,
                 input=self.layer0.output,
-                filter_shapes=((32,32,3,3),(32,32,3,3)),
+                filter_shapes=((16,16,3,3),(16,16,3,3)),
                 finalpoolsize=(2,2)            
             )
             
@@ -564,7 +564,7 @@ class deepAI:
             self.layer2 = layers.convGroup(
                 rng,
                 input=self.layer1.output,
-                filter_shapes=((32,32,3,3),(32,32,3,3)),
+                filter_shapes=((16,16,3,3),(16,16,3,3)),
                 finalpoolsize=(2,2)            
             )
             
@@ -574,13 +574,13 @@ class deepAI:
             self.layer3 = layers.HiddenLayer(
                 rng,
                 input=layer3_input,
-                n_in=32 * 8*8,
-                n_out=50,
+                n_in=16 * 8*8,
+                n_out=30,
                 activation=layers.relu
             )
 
             # Logistic regression with softmax
-            self.layer4 = layers.LogisticRegression(rng,input=self.layer3.output, n_in=50, n_out=9)
+            self.layer4 = layers.LogisticRegression(rng,input=self.layer3.output, n_in=30, n_out=9)
             
             self.params = self.layer4.params + self.layer3.params + self.layer2.params + self.layer1.params + self.layer0.params
             
@@ -705,8 +705,31 @@ class deepAI:
         
         return move
             
-
-            
+#    def visualizeLayer(self,layer,input_size):
+#        # Input that maximizes filter response
+#        ## TODO: Need to figure out how to find a number of input images equal to number of filters
+#        maxInput = np.asarray(
+#            np.random.normal(size=input_size),
+#            dtype=theano.config.floatX
+#        )
+#
+#        maxInput = theano.shared(value=maxInput, name='maxInput', borrow=True)                
+#        
+#        # Energy in output
+#        visualLoss = -(layer.output ** 2).sum()   
+#        
+#        # Update Function
+#        updates = self.adam(visualLoss,maxInput)
+#        updateFunction = theano.function([],visualLoss,updates=updates)
+#        
+#        prevLoss = 99999
+#                
+#        while(True):
+#            currentLoss = updateFunction()
+#            
+#            if abs(prevLoss-currentLoss)<1e-2:
+#                return maxInput.get_value
+#            
             
             
             

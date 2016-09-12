@@ -15,7 +15,9 @@ import numpy as np
 
 
 trainer = ttt.trainDeepAI()
-avgRecord = trainer.trainNTimes(10)
+trainer.aiX.setDifficulty(0)
+trainer.aiO.setDifficulty(0)
+avgRecord = trainer.trainNTimes(10,gameLimit=25000)
 np.savetxt('avgRecord.txt',avgRecord,fmt='%d')
 
 ##trainer.loadDeepAIParams('netParams.p')
@@ -29,5 +31,6 @@ np.savetxt('avgRecord.txt',avgRecord,fmt='%d')
 #
 #trainer.train(gameLimit=15000)
 
-
+#foo = deepAI()
+#filter1 = foo.visualizeLayer(foo.trainNet.layer1)
 
