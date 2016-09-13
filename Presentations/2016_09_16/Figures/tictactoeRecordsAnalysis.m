@@ -1,4 +1,6 @@
 %% Tic-tac-toe Results
+
+%% First trial
 %  10 trials, 25000 games, 250 games/update
 %  (3,3) CNNs, ((8,16),(16,16),(16,16)) nFilters, 30 fully connected, 9 out
 %  Default ADAM optimizer, epsilon = 0, gamma = 0.95
@@ -15,6 +17,70 @@ plot(gamesPlayed,avgRecords_small(1,:),'LineWidth',4)
 plot(gamesPlayed,avgRecords_small(2,:),'LineWidth',4)
 plot(gamesPlayed,avgRecords_small(3,:),'LineWidth',4)
 plot(gamesPlayed,avgRecords_small(4,:),'LineWidth',4)
+xlabel('Games Played')
+ylabel('Game % (out of 250)')
+title('DeepAI playing Tic-tac-toe (averaged over 10 trials)')
+legend('Wins','Draws','Losses','Broken')
+axis([0,25000,0,1])
+
+
+
+%% Second trial
+%  10 trials, 25000 games, 250 games/update
+%  (3,3) CNNs, ((8,16),(16,16),(16,16)) nFilters, 30 fully connected, 9 out
+%  Default ADAM optimizer, epsilon = 0, gamma = 0.97
+%  AIX: 0.0, AIO: 0.0
+avgRandom = [10 10 12 10 9 11 11 13 13 11 11 12 13 17 16 17 18 18 22 23 30 31 32 40 44 48 55 54 56 56 61 61 69 71 73 77 73 78 73 76 79 83 88 94 107 105 108 105 103 109 109 109 109 117 117 124 123 125 126 127 129 128 129 132 128 124 131 130 128 128 129 132 134 132 129 136 134 136 134 135 135 132 133 128 136 139 142 142 135 135 134 136 143 137 139 137 139 141 140 136;
+4 3 2 3 2 4 4 4 3 3 5 5 4 5 4 6 8 8 10 13 15 15 16 19 18 22 22 25 27 30 32 35 35 34 33 32 35 39 43 46 43 39 41 34 30 29 36 37 46 41 42 42 41 43 39 38 36 37 38 40 42 42 40 38 43 42 42 43 46 48 43 41 41 43 48 46 44 45 45 43 43 45 41 51 43 41 43 42 42 42 45 46 44 50 47 45 48 45 45 49;
+18 20 20 18 17 20 20 21 18 20 19 20 20 22 24 26 28 30 33 40 37 46 47 51 59 56 61 65 67 74 70 70 71 70 70 71 78 75 74 71 72 76 71 69 70 66 63 69 63 64 65 62 65 58 64 59 64 64 63 58 57 59 61 59 59 64 59 59 58 57 59 59 58 59 57 55 58 54 55 56 59 59 61 56 54 56 51 51 56 58 58 57 51 50 53 52 51 52 54 54;
+217 215 214 217 220 214 214 210 213 214 213 210 211 204 204 199 195 192 183 173 167 156 153 138 127 123 110 104 98 88 85 82 73 73 72 68 61 57 57 56 54 50 48 51 42 48 41 38 36 34 32 35 33 30 28 27 25 23 21 23 20 19 18 18 18 18 16 16 15 15 17 16 16 15 14 12 13 14 14 14 11 13 13 13 15 12 13 13 14 13 11 10 10 11 10 14 10 11 10 9]./250;
+
+figure(5), clf, hold on
+gamesPlayed = 0:250:24750;
+plot(gamesPlayed,avgRandom(1,:),'LineWidth',4)
+plot(gamesPlayed,avgRandom(2,:),'LineWidth',4)
+plot(gamesPlayed,avgRandom(3,:),'LineWidth',4)
+plot(gamesPlayed,avgRandom(4,:),'LineWidth',4)
+xlabel('Games Played')
+ylabel('Game % (out of 250)')
+title('DeepAI playing Tic-tac-toe (averaged over 10 trials)')
+legend('Wins','Draws','Losses','Broken')
+axis([0,25000,0,1])
+
+%% Third trial
+%  10 trials, 25000 games, 250 games/update
+%  (3,3) CNNs, ((8,16),(16,16),(16,16)) nFilters, 30 fully connected, 9 out
+%  Default ADAM optimizer, epsilon = 0, gamma = 0.97
+%  AIX: 1.0, AIO: 1.0
+avgOpt = [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 0 0 0 2 2 3 2 1 1 1 1 2 2 1 1 1 2 3 3 4 4 6 6 8 7 8 9 11 9 9 9 10 8 12 13 13 15 14 13 14 15 17 17 15 16 14 17 15 15;
+2 3 4 4 6 5 7 8 5 8 8 8 10 11 14 16 16 19 22 24 31 32 39 42 53 56 64 69 77 85 90 97 104 106 117 122 126 129 128 136 133 138 138 141 147 151 152 153 155 159 154 155 155 147 152 155 158 151 149 159 161 167 171 169 165 165 174 177 173 178 169 169 173 180 176 172 176 178 176 178 175 177 179 182 182 183 182 179 182 179 180 182 183 183 188 191 192 191 194 194;
+27 30 27 33 30 33 32 35 35 35 35 37 40 38 41 43 45 48 53 55 56 61 62 67 64 75 76 70 77 83 81 86 87 89 89 87 91 88 96 89 91 89 90 90 86 83 85 83 82 79 83 83 84 92 85 82 77 85 90 82 79 70 69 70 73 77 64 63 66 59 71 69 63 58 59 63 60 58 58 56 60 59 56 53 49 47 49 51 48 51 50 46 44 44 41 37 38 37 35 35;
+219 216 217 211 213 211 210 205 208 206 206 204 199 199 194 189 187 182 173 169 162 155 147 139 132 118 109 109 94 80 77 66 57 53 43 39 32 32 25 23 25 20 20 17 15 14 11 12 12 9 10 10 9 9 10 9 10 10 7 7 8 10 7 7 9 6 8 6 6 8 5 5 6 5 5 6 4 3 4 5 4 3 3 5 5 6 4 3 4 5 4 5 4 4 5 5 4 3 4 4]./250;
+
+figure(6), clf, hold on
+gamesPlayed = 0:250:24750;
+plot(gamesPlayed,avgOpt(1,:),'LineWidth',4)
+plot(gamesPlayed,avgOpt(2,:),'LineWidth',4)
+plot(gamesPlayed,avgOpt(3,:),'LineWidth',4)
+plot(gamesPlayed,avgOpt(4,:),'LineWidth',4)
+xlabel('Games Played')
+ylabel('Game % (out of 250)')
+title('DeepAI playing Tic-tac-toe (averaged over 10 trials)')
+legend('Wins','Draws','Losses','Broken')
+axis([0,25000,0,1])
+
+% Interesting episode:
+interesting = [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 1 0 2 1 2 0 1 0 0 0 3 1 4 5 1 0 1 0 0 2 1 0 3 1 0 0 1 0 2 0 1 0 2 0 2 4 0 1 1 1 2 8 10 9 5 2 4 16 29 32 35 31 33 32 52 53 63 51 58 50 62 52 52;
+1 2 5 2 6 5 4 5 2 4 6 7 13 14 11 21 17 15 22 21 33 20 29 53 51 42 59 47 63 56 63 65 85 85 98 95 95 107 106 104 83 103 114 130 120 116 120 135 103 141 139 147 147 154 146 148 151 151 155 165 169 172 162 162 169 165 165 160 155 155 161 155 151 186 145 168 161 169 172 165 160 166 155 160 163 147 140 142 163 167 173 158 160 152 170 172 175 175 184 176;
+28 38 27 39 36 30 27 22 36 29 38 43 48 35 47 49 43 50 54 57 61 70 69 59 65 81 72 72 85 84 84 94 83 93 99 87 106 90 93 98 114 109 101 96 107 118 113 97 129 93 87 83 94 80 90 93 91 87 85 70 63 65 81 79 76 76 77 78 87 80 84 87 94 62 99 78 84 75 68 69 78 74 90 82 67 60 72 67 53 45 37 26 32 30 23 14 20 11 12 16;
+221 210 218 209 208 215 219 223 212 217 206 200 189 201 192 180 190 185 173 172 156 160 152 138 134 127 119 131 101 110 103 91 82 72 53 68 49 52 51 46 52 36 35 23 23 16 17 15 17 12 19 19 9 15 14 9 6 11 10 12 17 13 7 8 5 7 8 11 8 13 5 6 1 2 5 3 4 4 2 6 3 5 3 4 4 14 6 6 3 5 8 14 5 5 6 6 5 2 2 6]./250;
+
+figure(7), clf, hold on
+gamesPlayed = 0:250:24750;
+plot(gamesPlayed,interesting(1,:),'LineWidth',4)
+plot(gamesPlayed,interesting(2,:),'LineWidth',4)
+plot(gamesPlayed,interesting(3,:),'LineWidth',4)
+plot(gamesPlayed,interesting(4,:),'LineWidth',4)
 xlabel('Games Played')
 ylabel('Game % (out of 250)')
 title('DeepAI playing Tic-tac-toe (averaged over 10 trials)')

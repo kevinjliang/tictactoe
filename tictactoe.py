@@ -799,10 +799,13 @@ class trainDeepAI:
 #        np.savetxt('allRecords.txt',allRecords,fmt='%d')
         return allRecords
 
-    def playNGames(self,N):
+    def playNGames(self,N,save=False):
         '''
         Play N number of games to completion (or a rule being broken)
         Results in i number of moves (depending on how long each game takes)
+        
+        save flag allows for recording of game states and vectors of actions, 
+        outcomes, duration, who
         
         Returns:
         images (i,1,64,64): Images of the game state before each move
@@ -818,6 +821,9 @@ class trainDeepAI:
         outcomes = np.zeros(N*9,dtype=np.int32)
         duration = np.zeros(N*9,dtype=np.int32)
         who = np.zeros(N*9,dtype=np.int32)
+        
+        if save:
+            states = np.zeros((N*9,3,3),dtype=np.int32)
 
         wins = 0
         draws = 0
@@ -844,6 +850,8 @@ class trainDeepAI:
                 
                 # Save image before move was made
                 images[i,0,:,:] = self.game.getImage()
+                if save:
+                    states[i,:,:] = self.game.getGrid()
                 
                 # Have player make move
                 move = playerToGo.ply(self.game)
@@ -904,6 +912,9 @@ class trainDeepAI:
                 outcomes = outcomes[0:i]
                 duration = duration[0:i]
                 who = who[0:i]
+                
+                if save:
+                    np.vstack((actions,outcomes,duration,who))
                 return images,actions,outcomes,duration,who,record
 
     def assignPlayerIdentities(self):
