@@ -914,8 +914,9 @@ class trainDeepAI:
                 who = who[0:i]
                 
                 if save:
+                    states = states[0:i,:,:]
                     data = np.vstack((actions,outcomes,duration,who))
-                    np.savetxt('states.txt',states.reshape((3,-1)),fmt='%d')
+                    np.savetxt('states.txt',states.reshape((-1,9)),fmt='%d')
                     np.savetxt('data.txt',data,fmt='%d')
                 return images,actions,outcomes,duration,who,record
 
