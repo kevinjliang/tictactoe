@@ -15,10 +15,13 @@ import numpy as np
 
 
 trainer = ttt.trainDeepAI()
-trainer.aiX.setDifficulty(0)
-trainer.aiO.setDifficulty(0)
-avgRecord = trainer.trainNTimes(10,gameLimit=25000)
-np.savetxt('avgRecord.txt',avgRecord,fmt='%d')
+trainer.loadDeepAIParams('netParams.p')
+i,a,o,d,w,r=trainer.playNGames(250,True)
+print("Wins: {0} \tDraws: {1} \tLosses: {2} \tBroken: {3}".format(r[0],r[1],r[2],r[3]))
+#trainer.aiX.setDifficulty(1)
+#trainer.aiO.setDifficulty(1)
+#avgRecord = trainer.trainNTimes(1,gameLimit=25000)
+#np.savetxt('avgRecord.txt',avgRecord,fmt='%d')
 
 ##trainer.loadDeepAIParams('netParams.p')
 #images,actions,outcomes,duration,who,record = trainer.playNGames(50)

@@ -914,7 +914,9 @@ class trainDeepAI:
                 who = who[0:i]
                 
                 if save:
-                    np.vstack((actions,outcomes,duration,who))
+                    data = np.vstack((actions,outcomes,duration,who))
+                    np.savetxt('states.txt',states.reshape((3,-1)),fmt='%d')
+                    np.savetxt('data.txt',data,fmt='%d')
                 return images,actions,outcomes,duration,who,record
 
     def assignPlayerIdentities(self):
