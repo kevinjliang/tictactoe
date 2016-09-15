@@ -9,7 +9,7 @@ Custom implementation of layers, modularized more than the theano tutorial examp
 
 import theano
 from theano import tensor as T
-from theano.tensor.nnet import conv2d
+from theano.tensor.nnet import conv2d, relu
 from theano.tensor.signal import pool
 import numpy as np
 import six.moves.cPickle as pickle
@@ -316,10 +316,6 @@ class convGroup(object):
         self.params = self.sublayer0.params + self.sublayer1.params
         
         self.output = self.sublayer1.output
-        
-
-def relu(x):
-    return T.switch(x<0,0,x)
 
 
 
