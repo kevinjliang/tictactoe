@@ -2,7 +2,7 @@
 \usetheme{Frankfurt}
 \usecolortheme{rose}
 
-\usepackage{algorithm}
+\usepackage{algorithm,algorithmic}
 \usepackage{hyperref}
 \usepackage{url}
 \usepackage{graphicx}
@@ -65,7 +65,7 @@
 
 \subsection{Agent 1}
 \begin{frame}{Agent 1: Deep Reinforcement Learner}
-	\begin{minipage}[t]{0.45\linewidth}
+	\begin{minipage}[t]{0.55\linewidth}
 		\begin{itemize}
 			\item Agent is given a 64x64 image of the state of the board, not the 3x3 state space directly.
 			\item Agent not informed of rules. Does not know:
@@ -75,10 +75,11 @@
 					\item marking an already occupied spot is an illegal move
 				\end{itemize}
 			\item Use direct policy search (policy gradients) to update weights
+			\item Action stochasticity: multinomial distribution
 		\end{itemize}
-	\end{minipage}%
+	\end{minipage}
 	\hfill
-	\begin{minipage}[t]{0.45\linewidth}
+	\begin{minipage}[t]{0.4\linewidth}
 		\centering
 		\begin{figure}[tttDL]
 			\centering
@@ -88,38 +89,58 @@
 \end{frame}
 
 \begin{frame}{Agent 1: Architecture}
-	\begin{itemize}
-		\item Input: 64x64 image
-		\item CNN: 8  x (3,3), ReLU
-		\item[] CNN: 16 x (3,3), ReLU
-		\item[] MaxPool: (2,2)
-		\item CNN: 16 x (3,3), ReLU
-		\item[] CNN: 16 x (3,3), ReLU
-		\item[] MaxPool: (2,2)
-		\item CNN: 16 x (3,3), ReLU
-		\item[] CNN: 16 x (3,3), ReLU
-		\item[] MaxPool: (2,2)
-		\item Fully Connected: 16 x 8x8 $\rightarrow$ 30, ReLU
-		\item Fully Connected: 30 $\rightarrow$ 9
-		\item Softmax
-	\end{itemize}
+	\begin{minipage}[t]{0.68\linewidth}
+		\begin{itemize}
+			\item Input: 64x64 image
+			\item CNN: 8  x (3,3), ReLU
+			\item[] CNN: 16 x (3,3), ReLU
+			\item[] MaxPool: (2,2)
+			\item CNN: 16 x (3,3), ReLU
+			\item[] CNN: 16 x (3,3), ReLU
+			\item[] MaxPool: (2,2)
+			\item CNN: 16 x (3,3), ReLU
+			\item[] CNN: 16 x (3,3), ReLU
+			\item[] MaxPool: (2,2)
+			\item Fully Connected: 16 x 8x8 $\rightarrow$ 30, ReLU
+			\item Fully Connected: 30 $\rightarrow$ 9
+			\item Softmax
+		\end{itemize}
+	\end{minipage}
+	\hfill
+	\begin{minipage}[t]{0.3\linewidth}
+		\centering
+		\begin{figure}[tttDL]
+			\centering
+			\includegraphics[width=1.5\textwidth]{Figures/boardExample.png}
+		\end{figure}
+	\end{minipage}
 \end{frame}
 
 \subsection{Agent 2}
-\begin{frame}{Agent 2: "Optimal" opponent}
-	\begin{itemize}
-		\item Agent is given the 3x3 state space directly.
-		\item Agent knows rules. Knows:
+\begin{frame}{Agent 2: "Optimal" opponent}	
+	\begin{minipage}[t]{0.55\linewidth}
 		\begin{itemize}
-			\item what leads to a win/loss
-			\item own identity
-			\item marking an already occupied spot is an illegal move
+			\item Agent is given the 3x3 state space directly.
+			\item Agent knows rules. Knows:
+			\begin{itemize}
+				\item what leads to a win/loss
+				\item own identity
+				\item marking an already occupied spot is an illegal move
+			\end{itemize}
+			\item Add a "difficulty" parameter that controls how often the "optimal" agent makes a random (legal) move, instead of always following rules
+			\begin{itemize}
+				\item Allows for the deep RL agent to occasionally win
+			\end{itemize}	
 		\end{itemize}
-		\item Add a "difficulty" parameter that controls how often the "optimal" agent makes a random (legal) move, instead of always following rules
-		\begin{itemize}
-			\item Allows for the deep RL agent to occasionally win (and therefore learn)
-		\end{itemize}	
-	\end{itemize}
+	\end{minipage}
+	\hfill
+	\begin{minipage}[t]{0.4\linewidth}
+		\centering
+		\begin{figure}[tttAI]
+			\centering
+			\includegraphics[width=.95\textwidth]{Figures/tttAI.jpg}
+		\end{figure}
+	\end{minipage}
 \end{frame}
 
 \begin{frame}{Agent 2: "Architecture"}
@@ -158,16 +179,30 @@
 
 \begin{frame}{Training Regimen}
 %	\begin{algorithm}
+%		\caption{Training Deep Agent}
 %		\begin{algorithmic}[1]
-%			\Procedure{Training Deep Agent}
+%			\STATE Initialize net params $\bm \theta$ randomly
+%			\WHILE{not converged}
+%				\STATE Initialize images $\bm x$, actions $\bm a$, labels $\bm l$, durations $\bm t$, player identities $\bm z$ to empty
+%				\FOR{$k = 1$ \TO M }
+%					\STATE Play game with $\bm \theta$ held constant
+%					\IF Broken Rule
+%						\STATE Discard all but last frame
+%					\ENDIF
+%					\STATE Append frames of game k to $\bm x$, $\bm a$, $\bm l$, $\bm t$, $\bm z$
+%				\ENDFOR
+%				\STATE {\it loss} $= f(\bm x, \bm a, \bm l, \bm t, \bm z)$
+%				\STATE $\bm \theta = $ ADAM({\it loss},$\bm \theta$)
+%			\ENDWHILE
 %		\end{algorithmic}
 %	\end{algorithm}
-
 \end{frame}
 
-\begin{frame}{Loss Expression}
+\begin{frame}[shrink=15]{Loss Expression}
+	Player 1: Deep Reinforcement Learner \qquad \qquad Player 2: Optimal Player \\
+	\vspace{5 mm}
 	\begin{itemize}
-		\item Loss for player $j$:
+		\item Loss for Player $j$, $j \in \{1,2\}$:
 		\begin{equation}
 		loss_j = -\frac{1}{N} \sum_{i \in z_i=j} \gamma^{t_i} p(y_i=a_i|x_i) r_{l_i} 
 		\end{equation}
@@ -178,16 +213,33 @@
 	\end{itemize}
 	
 	\begin{align*}
-		N &= \#\text{ of frames in training set} \qquad &z_i = \text{player presented with frame } i \\
-		\gamma &= \text{discount factor} \qquad &t_i = \text{duration of game that } i \text{ is part of} \\
-		y_i &= \text{output of network softmax} \qquad &a_i = \text{action taken after frame} i \\
-		x_i &= \text{image of tic-tac-toe board in frame} i \qquad &l_i = \text{eventual result (W,D,L,B) of game of frame} i \\
-		r_l &= \text{reward of game result} l
-	\end{align*}
-
-	
+		x_i &= \text{image of board in frame } i & y_i &= \text{output of network softmax after frame } i \\
+		a_i &= \text{action taken after frame } i  & l_i &= \text{eventual game result $(W,D,L,B)$ of frame } i \\
+		r_l &= \text{reward of game result } l & t_i &= \text{duration of game that frame } i \text{ is part of} \\
+		z_i &= \text{player presented with frame } i & \gamma &= \text{discount factor} \\
+		N &= \#\text{ of frames in training set}
+	\end{align*}	
 \end{frame}
 
+\subsection{Results}
+\begin{frame}{Results - AI.X = 0.5; AI.O = 0.6}
+	\begin{figure}[Results]
+		\centering
+		\includegraphics[width=0.95\textwidth]{Figures/results05X06O.png}
+	\end{figure}
+\end{frame}
 
+\subsection{Next Steps}
+\begin{frame}{Next Steps}
+	\begin{itemize}
+		\item DGDN Decoder to utilize discarded broken frames
+		\item Knowledge transfer to other tasks: 
+		\begin{itemize}
+			\item Digital Mammography DREAM Challenge
+			\item TSA Airport Scanners
+		\end{itemize}
+		\item Future RL explorations (and exploitations)
+	\end{itemize}
+\end{frame}
 
 \end{document}
