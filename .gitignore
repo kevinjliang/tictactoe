@@ -1,7 +1,9 @@
-*.asv
-*.pyc
+__pycache__
+Resources
 Presentations/Figures/googleCar.jpg
 Presentations/Figures/alphaGo.png
+*.asv
+*.pyc
 *.snm
 *.gz
 *.toc
@@ -11,3 +13,4 @@ Presentations/Figures/alphaGo.png
 Data/batchData.p
 stack.p
 trainNetParams.p
+
